@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1094751435794",
+    "project_id": "python-mai-farawa",
+    "storage_bucket": "python-mai-farawa.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1094751435794:android:f2f5ddde8a1ef9d2986ccb",
+        "android_client_info": {
+          "package_name": "com.example.python_mai_farawa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAtI_UPisfB9p7jrn0YPrsBmS5x8rzOCWo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
