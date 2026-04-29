@@ -1,10 +1,22 @@
-import 'package:flutter/material.dart';
-import '../models/lesson.dart';
-import '../data/lesson_data.dart';
-import 'home_screen.dart';
-import 'lesson_detail_screen.dart';
+import 'dart:convert';
 
-// This screen gives the learner a simple practice area after passing the quiz.
+import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:webview_flutter/webview_flutter.dart';
+
+import '../models/lesson_model.dart';
+import '../models/practice_model.dart';
+import '../models/progress_model.dart';
+import '../services/firestore_service.dart';
+import '../services/local_lesson_content_service.dart';
+import '../services/local_progress_service.dart';
+import '../services/progress_service.dart';
+import '../services/progress_sync_service.dart';
+import 'lesson_detail_screen.dart';
+import 'lesson_header_tabs.dart';
+
 class PracticeScreen extends StatefulWidget {
   final Lesson lesson;
 
@@ -15,131 +27,590 @@ class PracticeScreen extends StatefulWidget {
 }
 
 class _PracticeScreenState extends State<PracticeScreen> {
-  // Controller used to read and edit code typed by the learner.
+  final FirestoreService firestoreService = FirestoreService();
+  final LocalLessonContentService localLessonContentService =
+      LocalLessonContentService();
+  final LocalProgressService localProgressService = LocalProgressService();
+  final ProgressService progressService = ProgressService();
+  final ProgressSyncService progressSyncService = ProgressSyncService();
+
+  WebViewController? webViewController;
+  bool webViewReady = false;
+  bool starterLoaded = false;
+  bool practiceCompleted = false;
+
   final TextEditingController codeController = TextEditingController();
 
-  // Text shown in the output area.
-  String output = 'Sakamakon code zai bayyana a nan.';
-
-  // Used to show loading while "running" code.
+  String output = 'The resulting code will appear here.';
   bool isRunning = false;
 
-  // Used to prevent multiple taps when completing a lesson.
-  bool isCompletingLesson = false;
-
-  // Controls whether the lesson completion success UI should be shown.
-  bool lessonCompleted = false;
+  String _initialStarterCode = '';
+  String _currentPracticeId = '';
 
   @override
   void initState() {
     super.initState();
-
-    // Load starter code when the practice screen opens.
-    codeController.text = starterCode;
+    _loadExistingPracticeCompletion();
+    initializeSkulptRunner();
   }
 
-  // Starter Python code shown to the learner by default.
-  String get starterCode {
-    return '''print("Sannu Duniya")
-
-name = "Ali"
-print(name)''';
+  Future<bool> hasInternet() async {
+    final result = await Connectivity().checkConnectivity();
+    return result != ConnectivityResult.none;
   }
 
-  // Finds the next lesson so the learner can continue after completion.
-  Lesson? get nextLesson {
-    final lessons = LessonData.lessons;
-    final currentIndex = lessons.indexWhere((l) => l.id == widget.lesson.id);
+  Future<String> getUid() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No signed-in user found.');
+    }
+    return user.uid;
+  }
 
-    if (currentIndex == -1 || currentIndex + 1 >= lessons.length) {
-      return null;
+  Future<void> initializeSkulptRunner() async {
+    try {
+      if (mounted) {
+        setState(() {
+          webViewReady = false;
+          output = 'Loading Python runner...';
+        });
+      }
+
+      final htmlString = await rootBundle.loadString(
+        'assets/skulpt_runner.html',
+      );
+
+      webViewController = WebViewController()
+        ..setJavaScriptMode(JavaScriptMode.unrestricted)
+        ..setBackgroundColor(const Color(0x00000000))
+        ..addJavaScriptChannel(
+          'RunnerChannel',
+          onMessageReceived: (JavaScriptMessage message) {
+            try {
+              final data = jsonDecode(message.message) as Map<String, dynamic>;
+              final type = (data['type'] ?? '').toString();
+              final messageOutput = (data['output'] ?? '').toString();
+
+              if (!mounted) return;
+
+              setState(() {
+                if (type == 'ready') {
+                  webViewReady = true;
+                  output = messageOutput;
+                  isRunning = false;
+                } else if (type == 'success') {
+                  isRunning = false;
+                  output = messageOutput.trim().isEmpty
+                      ? 'Code executed successfully with no output.'
+                      : messageOutput;
+                } else if (type == 'error') {
+                  isRunning = false;
+                  output = messageOutput;
+                }
+              });
+            } catch (e) {
+              if (!mounted) return;
+              setState(() {
+                isRunning = false;
+                output = 'Failed to read runner response: $e';
+              });
+            }
+          },
+        )
+        ..loadHtmlString(htmlString);
+
+      if (mounted) {
+        setState(() {});
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        webViewReady = false;
+        output = 'Failed to initialize Python runner: $e';
+      });
+    }
+  }
+
+  Future<void> _loadExistingPracticeCompletion() async {
+    try {
+      final uid = await getUid();
+      final existingRows = await localProgressService.getUserLocalProgress(uid);
+
+      ProgressModel? existing;
+      try {
+        existing = existingRows.firstWhere(
+          (item) => item.lessonId == widget.lesson.lessonId,
+        );
+      } catch (_) {
+        existing = null;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        practiceCompleted = existing?.practiceCompleted ?? false;
+      });
+    } catch (e) {
+      debugPrint('Failed to load existing practice completion: $e');
+    }
+  }
+
+  Future<List<PracticeModel>> loadPractices() async {
+    try {
+      if (await hasInternet()) {
+        final onlinePractices = await firestoreService.getPracticesByLessonId(
+          widget.lesson.lessonId,
+        );
+
+        for (final practice in onlinePractices) {
+          await localLessonContentService.cachePractice(
+            practiceId: practice.practiceId,
+            lessonId: practice.lessonId,
+            title: practice.title,
+            instruction: practice.instruction,
+            starterCode: practice.starterCode,
+            expectedOutput: practice.expectedOutput,
+            order: practice.order,
+          );
+        }
+
+        if (onlinePractices.isNotEmpty) {
+          return onlinePractices..sort((a, b) => a.order.compareTo(b.order));
+        }
+      }
+    } catch (e) {
+      debugPrint('Online practice load failed: $e');
     }
 
-    return lessons[currentIndex + 1];
+    try {
+      final localRows = await localLessonContentService.getPracticesByLessonId(
+        widget.lesson.lessonId,
+      );
+
+      final localPractices =
+          localRows
+              .map(
+                (row) => PracticeModel(
+                  practiceId: row['practiceId'] as String? ?? '',
+                  lessonId: row['lessonId'] as String? ?? '',
+                  title: row['title'] as String? ?? '',
+                  instruction: row['instruction'] as String? ?? '',
+                  starterCode: row['starterCode'] as String? ?? '',
+                  expectedOutput: row['expectedOutput'] as String? ?? '',
+                  order:
+                      (row['practiceOrder'] as int?) ??
+                      (row['order'] as int?) ??
+                      0,
+                ),
+              )
+              .toList()
+            ..sort((a, b) => a.order.compareTo(b.order));
+
+      return localPractices;
+    } catch (e) {
+      debugPrint('Local practice load failed: $e');
+      rethrow;
+    }
   }
 
-  // Simulates running code in the current prototype version.
   Future<void> runCode() async {
-    setState(() {
-      isRunning = true;
-    });
-
-    await Future.delayed(const Duration(milliseconds: 800));
-
-    final String code = codeController.text.trim();
-    String result;
-
-    if (code.isEmpty) {
-      result = 'Da fatan za ka rubuta Python code kafin ka danna Run.';
-    } else if (code.contains('print')) {
-      result =
-          'An karbi code dinka. Wannan shi ne gwajin farko na practice area. '
-          'A gaba za a iya hada Skulpt ko backend domin gudanar da code na gaske.';
-    } else {
-      result =
-          'An ajiye code dinka, amma ka tabbata kana amfani da print domin fitar da sakamako.';
-    }
-
-    setState(() {
-      output = result;
-      isRunning = false;
-    });
-  }
-
-  // Clears the editor and resets the output message.
-  void clearCode() {
-    setState(() {
-      codeController.clear();
-      output = 'An goge code. Sakamakon code zai bayyana a nan.';
-    });
-  }
-
-  // Marks the lesson as completed and updates shared lesson progress.
-  Future<void> completeLesson() async {
-    if (isCompletingLesson || lessonCompleted) return;
-
-    setState(() {
-      isCompletingLesson = true;
-    });
-
-    await LessonData.completeLesson(widget.lesson.id);
-
-    if (!mounted) return;
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('An kammala wannan lacca cikin nasara!'),
-        duration: Duration(seconds: 2),
-      ),
-    );
-
-    setState(() {
-      isCompletingLesson = false;
-      lessonCompleted = true;
-    });
-  }
-
-  // Takes the learner back to the home screen and clears old routes.
-  void goHome() {
-    Navigator.pushAndRemoveUntil(
-      context,
-      MaterialPageRoute(builder: (context) => const HomeScreen()),
-      (route) => false,
-    );
-  }
-
-  // Opens the next lesson if available, otherwise returns home.
-  void goToNextLesson() {
-    final next = nextLesson;
-
-    if (next == null) {
-      goHome();
+    if (!webViewReady) {
+      setState(() {
+        output = 'Python runner is still loading. Please wait a moment.';
+      });
       return;
     }
 
-    Navigator.pushReplacement(
-      context,
-      MaterialPageRoute(builder: (context) => LessonDetailScreen(lesson: next)),
+    final code = codeController.text.trim();
+
+    if (code.isEmpty) {
+      setState(() {
+        output = 'Please write Python code before clicking Run.';
+      });
+      return;
+    }
+
+    setState(() {
+      isRunning = true;
+      output = 'Running code...';
+    });
+
+    try {
+      final escapedCode = jsonEncode(code);
+      if (webViewController == null) {
+        setState(() {
+          isRunning = false;
+          output = 'Python runner is not ready yet.';
+        });
+        return;
+      }
+
+      await webViewController!.runJavaScript('runPython($escapedCode);');
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        isRunning = false;
+        output = 'Failed to run code: $e';
+      });
+    }
+  }
+
+  void clearCode() {
+    setState(() {
+      codeController.clear();
+      output = 'Your code has been cleared.';
+    });
+  }
+
+  void resetCode() {
+    setState(() {
+      codeController.text = _initialStarterCode;
+      output = 'Starter code restored.';
+    });
+  }
+
+  Future<void> markPracticeCompleted() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    final uid = user.uid;
+    final existingRows = await localProgressService.getUserLocalProgress(uid);
+
+    ProgressModel? existing;
+    try {
+      existing = existingRows.firstWhere(
+        (item) => item.lessonId == widget.lesson.lessonId,
+      );
+    } catch (_) {
+      existing = null;
+    }
+
+    const bool completedPractice = true;
+    final bool quizCompleted = existing?.quizCompleted ?? false;
+    final bool videoViewed = existing?.videoViewed ?? false;
+    final int score = existing?.score ?? 0;
+    final bool lessonCompleted =
+        quizCompleted && completedPractice && videoViewed;
+
+    await localProgressService.upsertLocalProgress(
+      progressId: '${uid}_${widget.lesson.lessonId}',
+      userId: uid,
+      lessonId: widget.lesson.lessonId,
+      lessonCompleted: lessonCompleted,
+      practiceCompleted: completedPractice,
+      quizCompleted: quizCompleted,
+      videoViewed: videoViewed,
+      score: score,
+      videoPositionSeconds: existing?.videoPositionSeconds ?? 0,
+      videoDurationSeconds: existing?.videoDurationSeconds ?? 0,
+    );
+
+    try {
+      await progressService.savePracticeProgress(
+        lessonId: widget.lesson.lessonId,
+      );
+      await progressService.updateLessonCompleted(
+        lessonId: widget.lesson.lessonId,
+      );
+      await progressSyncService.syncPendingProgress();
+    } catch (e) {
+      debugPrint('Remote practice progress sync failed: $e');
+    }
+
+    if (!mounted) return;
+
+    setState(() {
+      practiceCompleted = true;
+      output = 'Practice task marked as completed.';
+    });
+  }
+
+  Future<void> goToNextLesson() async {
+    final nextLessonNumber = widget.lesson.lessonNumber + 1;
+
+    try {
+      final nextLesson = await firestoreService.getLessonByLessonNumber(
+        nextLessonNumber,
+      );
+
+      if (!mounted) return;
+
+      if (nextLesson == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'No next lesson found. You have reached the last lesson.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(
+          builder: (_) => LessonDetailScreen(lesson: nextLesson),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Could not open the next lesson offline yet. Please reconnect once to cache the next lesson.',
+          ),
+        ),
+      );
+      debugPrint('Failed to load next lesson: $e');
+    }
+  }
+
+  Widget _buildCodeEditor() {
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 260),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1E1E1E),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: TextField(
+        controller: codeController,
+        minLines: 12,
+        maxLines: null,
+        style: const TextStyle(
+          color: Colors.white,
+          fontSize: 15,
+          height: 1.5,
+          fontFamily: 'monospace',
+        ),
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          hintText: 'Write Python code here...',
+          hintStyle: TextStyle(color: Colors.white54),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOutputCard(PracticeModel practice) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Output',
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Colors.black87,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F7F7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE0E0E0)),
+            ),
+            child: Text(
+              output,
+              style: const TextStyle(
+                fontSize: 14,
+                color: Colors.black87,
+                height: 1.5,
+                fontFamily: 'monospace',
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Text(
+            'Expected output: ${practice.expectedOutput}',
+            style: const TextStyle(
+              fontSize: 13,
+              color: Colors.black54,
+              height: 1.4,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButtons() {
+    return Column(
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: SizedBox(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: clearCode,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: const Color(0xFF2D8CE0),
+                    side: const BorderSide(color: Color(0xFF2D8CE0), width: 2),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Clear Code',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: SizedBox(
+                height: 50,
+                child: OutlinedButton(
+                  onPressed: resetCode,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: Colors.orange.shade800,
+                    side: BorderSide(color: Colors.orange.shade700, width: 2),
+                    backgroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                  ),
+                  child: const Text(
+                    'Reset Code',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          height: 52,
+          child: ElevatedButton(
+            onPressed: isRunning ? null : runCode,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.green,
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: isRunning
+                ? const SizedBox(
+                    width: 22,
+                    height: 22,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2.5,
+                      color: Colors.white,
+                    ),
+                  )
+                : const Text(
+                    'Run Code',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildCompletionButtons() {
+    return Column(
+      children: [
+        SizedBox(
+          width: double.infinity,
+          height: 50,
+          child: ElevatedButton(
+            onPressed: practiceCompleted ? null : markPracticeCompleted,
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF4CAF50),
+              foregroundColor: Colors.white,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
+            ),
+            child: Text(
+              practiceCompleted
+                  ? 'Practice Completed'
+                  : 'Mark Practice Completed',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        if (practiceCompleted) ...[
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: OutlinedButton(
+                    onPressed: goToNextLesson,
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: const Color(0xFF2D8CE0),
+                      side: const BorderSide(
+                        color: Color(0xFF2D8CE0),
+                        width: 2,
+                      ),
+                      backgroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Next Lesson',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SizedBox(
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.popUntil(context, (route) => route.isFirst);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2D8CE0),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                    ),
+                    child: const Text(
+                      'Go to Home',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ],
     );
   }
 
@@ -152,332 +623,140 @@ print(name)''';
   @override
   Widget build(BuildContext context) {
     final lesson = widget.lesson;
-    final Lesson? upcomingLesson = nextLesson;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF2D8CE0),
         elevation: 0,
-        title: Text(
-          'Aiki - Lacca ${lesson.number}',
-          style: const TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
+        automaticallyImplyLeading: false,
+        titleSpacing: 0,
+        title: Padding(
+          padding: const EdgeInsets.only(left: 12),
+          child: Text(
+            'Lesson ${lesson.lessonNumber}: ${lesson.title}',
+            style: const TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w700,
+              color: Colors.white,
+            ),
           ),
         ),
-        iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
+      body: Column(
+        children: [
+          const LessonHeaderTabs(activeTab: 'practice'),
+          Expanded(
+            child: SafeArea(
+              top: false,
+              child: FutureBuilder<List<PracticeModel>>(
+                future: loadPractices(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-          // Show either the completion UI or the normal practice UI.
-          child: lessonCompleted
-              ? Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        children: [
-                          const Icon(
-                            Icons.check_circle,
-                            size: 72,
-                            color: Colors.green,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'An kammala Lacca ${lesson.number}',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 22,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            '${lesson.title} ta kammala cikin nasara.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 15,
-                              color: Colors.black54,
-                              height: 1.5,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            upcomingLesson != null
-                                ? 'Za ka iya komawa gida ko ka wuce zuwa lacca ta gaba.'
-                                : 'Wannan ita ce lacca ta karshe. Za ka iya komawa gida.',
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-
-                    // Button to return to home screen.
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: goHome,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2D8CE0),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: const Text(
-                          'Koma Gida',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                          ),
+                  if (snapshot.hasError) {
+                    return Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(24),
+                        child: Text(
+                          'Error loading practice: ${snapshot.error}',
+                          textAlign: TextAlign.center,
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 12),
+                    );
+                  }
 
-                    // Button to continue to the next lesson if one exists.
-                    if (upcomingLesson != null)
-                      SizedBox(
-                        width: double.infinity,
-                        height: 54,
-                        child: ElevatedButton(
-                          onPressed: goToNextLesson,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.green,
-                            foregroundColor: Colors.white,
-                            elevation: 0,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
-                          child: Text(
-                            'Je zuwa Lacca ${upcomingLesson.number}',
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                )
-              : Column(
-                  children: [
-                    // Practice instruction card.
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            lesson.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 8),
-                          const Text(
-                            'Rubuta karamin Python code a kasa sannan ka gwada shi.',
-                            style: TextStyle(
-                              fontSize: 14,
-                              color: Colors.black54,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
+                  final practices = snapshot.data ?? [];
 
-                    // Code editor area.
-                    Expanded(
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF1E1E1E),
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: TextField(
-                          controller: codeController,
-                          expands: true,
-                          maxLines: null,
-                          minLines: null,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 15,
-                            height: 1.5,
-                            fontFamily: 'monospace',
-                          ),
-                          decoration: const InputDecoration(
-                            border: InputBorder.none,
-                            hintText: 'Rubuta Python code a nan...',
-                            hintStyle: TextStyle(color: Colors.white54),
-                          ),
-                        ),
+                  if (practices.isEmpty) {
+                    return const Center(
+                      child: Text(
+                        'No practice found for this lesson.',
+                        style: TextStyle(fontSize: 15, color: Colors.black54),
                       ),
-                    ),
-                    const SizedBox(height: 14),
+                    );
+                  }
 
-                    // Buttons for clearing and running code.
-                    Row(
-                      children: [
-                        Expanded(
-                          child: SizedBox(
-                            height: 50,
-                            child: OutlinedButton(
-                              onPressed: clearCode,
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: const Color(0xFF2D8CE0),
-                                side: const BorderSide(
-                                  color: Color(0xFF2D8CE0),
-                                  width: 2,
+                  final practice = practices.first;
+
+                  if (_currentPracticeId != practice.practiceId) {
+                    _currentPracticeId = practice.practiceId;
+                    _initialStarterCode = practice.starterCode;
+                    starterLoaded = false;
+                  }
+
+                  if (!starterLoaded) {
+                    codeController.text = practice.starterCode;
+                    _initialStarterCode = practice.starterCode;
+                    starterLoaded = true;
+                  }
+
+                  return Stack(
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: SingleChildScrollView(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(16),
                                 ),
-                                backgroundColor: Colors.white,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: const Text(
-                                'Goge',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: SizedBox(
-                            height: 50,
-                            child: ElevatedButton(
-                              onPressed: isRunning ? null : runCode,
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: Colors.green,
-                                foregroundColor: Colors.white,
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(10),
-                                ),
-                              ),
-                              child: isRunning
-                                  ? const SizedBox(
-                                      width: 22,
-                                      height: 22,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2.5,
-                                        color: Colors.white,
-                                      ),
-                                    )
-                                  : const Text(
-                                      'Run Code',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      practice.title,
+                                      style: const TextStyle(
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.w800,
+                                        color: Colors.black87,
                                       ),
                                     ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Output area for simulated code result.
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Sakamako',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w800,
-                              color: Colors.black87,
-                            ),
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            output,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              color: Colors.black87,
-                              height: 1.5,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Button to complete this lesson.
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: ElevatedButton(
-                        onPressed: isCompletingLesson ? null : completeLesson,
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF2D8CE0),
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                        ),
-                        child: isCompletingLesson
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Text(
-                                'Kammala Wannan Lacca',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      practice.instruction,
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.black54,
+                                        height: 1.5,
+                                      ),
+                                    ),
+                                  ],
                                 ),
                               ),
+                              const SizedBox(height: 16),
+                              _buildCodeEditor(),
+                              const SizedBox(height: 14),
+                              _buildActionButtons(),
+                              const SizedBox(height: 16),
+                              _buildOutputCard(practice),
+                              const SizedBox(height: 16),
+                              _buildCompletionButtons(),
+                              const SizedBox(height: 20),
+                            ],
+                          ),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-        ),
+                      if (webViewController != null)
+                        SizedBox(
+                          height: 1,
+                          width: 1,
+                          child: WebViewWidget(controller: webViewController!),
+                        ),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

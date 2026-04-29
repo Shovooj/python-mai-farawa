@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/skulpt@1.2.0/dist/skulpt-stdlib.js"></script>
+</head>
+
+<body>
+    <pre id="output"></pre>
+
+    <script>
+        function sendMessage(data) {
+            if (window.RunnerChannel) {
+                RunnerChannel.postMessage(JSON.stringify(data));
+            }
+        }
+
+        function outf(text) {
+            document.getElementById("output").innerHTML += text;
+        }
+
+        function builtinRead(x) {
+            if (
+                Sk.builtinFiles === undefined ||
+                Sk.builtinFiles["files"][x] === undefined
+            ) {
+                throw "File not found: '" + x + "'";
+            }
+            return Sk.builtinFiles["files"][x];
+        }
+
+        async function runPython(code) {
+            const outputEl = document.getElementById("output");
+            outputEl.innerHTML = "";
+
+            try {
+                if (typeof Sk === "undefined") {
+                    throw new Error("Skulpt is not loaded yet.");
+                }
+
+                Sk.pre = "output";
+                Sk.configure({
+                    output: outf,
+                    read: builtinRead
+                });
+
+                await Sk.misceval.asyncToPromise(function () {
+                    return Sk.importMainWithBody("<stdin>", false, code, true);
+                });
+
+                sendMessage({
+                    type: "success",
+                    output: outputEl.innerText
+                });
+            } catch (err) {
+                sendMessage({
+                    type: "error",
+                    output: err.toString()
+                });
+            }
+        }
+
+        window.onload = function () {
+            setTimeout(function () {
+                if (typeof Sk !== "undefined") {
+                    sendMessage({
+                        type: "ready",
+                        output: "Python runner is ready."
+                    });
+                } else {
+                    sendMessage({
+                        type: "error",
+                        output: "Skulpt failed to load."
+                    });
+                }
+            }, 800);
+        };
+    </script>
+</body>
+
+</html>

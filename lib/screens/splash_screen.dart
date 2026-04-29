@@ -1,10 +1,9 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import '../data/lesson_data.dart';
-import 'login_screen.dart';
+import '../main.dart';
 
 // SplashScreen is the first screen shown when the app starts.
-// It prepares lesson data, waits briefly, and then opens the login screen.
+// It waits briefly, then opens the login screen.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -16,36 +15,31 @@ class _SplashScreenState extends State<SplashScreen> {
   @override
   void initState() {
     super.initState();
-
-    // Start app setup immediately after the splash screen appears.
     _startApp();
   }
 
   Future<void> _startApp() async {
     try {
-      // Load and prepare lesson data before entering the main app.
-      await LessonData.initializeLessons();
+      // Future place for app startup work such as:
+      // - Firebase initialization checks
+      // - SQLite database initialization
+      // - Preloading cached lessons
     } catch (e) {
-      // Print any startup error for debugging.
-      debugPrint('Lesson initialization error: $e');
+      debugPrint('Startup error: $e');
     }
 
-    // Keep the splash screen visible for a short time.
     await Future.delayed(const Duration(seconds: 3));
 
-    // Stop if this screen is no longer active.
     if (!mounted) return;
 
-    // Move from splash screen to login screen.
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => const LoginScreen()),
+      MaterialPageRoute(builder: (context) => const AuthGate()),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    // Main brand colors used in the splash screen design.
     const Color primaryBlue = Color(0xFF2D8CE0);
     const Color brandYellow = Color(0xFFF4D24D);
 
@@ -58,17 +52,12 @@ class _SplashScreenState extends State<SplashScreen> {
             width: double.infinity,
             child: Column(
               children: [
-                // Top spacer pushes the main logo/text section downward
-                // so it sits closer to the visual center of the screen.
                 const Spacer(flex: 5),
-
-                // Center the full branding block horizontally.
                 Center(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.center,
                     children: [
-                      // Circular logo container.
                       Container(
                         width: 96,
                         height: 96,
@@ -87,10 +76,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           ),
                         ),
                       ),
-
                       const SizedBox(height: 26),
-
-                      // Main application title.
                       const Text(
                         'Python Mai Farawa',
                         textAlign: TextAlign.center,
@@ -100,10 +86,7 @@ class _SplashScreenState extends State<SplashScreen> {
                           color: Colors.white,
                         ),
                       ),
-
                       const SizedBox(height: 8),
-
-                      // Subtitle describing the purpose of the app.
                       const Text(
                         'Learn basic Python in Hausa language',
                         textAlign: TextAlign.center,
@@ -116,12 +99,7 @@ class _SplashScreenState extends State<SplashScreen> {
                     ],
                   ),
                 ),
-
-                // This spacer creates the large empty blue area between
-                // the branding block and the loader near the bottom.
                 const Spacer(flex: 6),
-
-                // Center the loading indicator horizontally.
                 const Center(
                   child: SizedBox(
                     width: 42,
@@ -133,8 +111,6 @@ class _SplashScreenState extends State<SplashScreen> {
                     ),
                   ),
                 ),
-
-                // Small bottom spacing for a cleaner finish.
                 const SizedBox(height: 20),
               ],
             ),

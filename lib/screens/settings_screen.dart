@@ -1,7 +1,8 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../data/lesson_data.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-// Settings screen for app preferences and account-related actions.
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
 
@@ -10,17 +11,327 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  // Stores the currently selected language.
-  String _currentLanguage = 'Hausa';
+  static const String _languageKey = 'app_language';
 
-  // Stores whether notifications are enabled or disabled.
-  bool _notificationsEnabled = true;
+  User? _currentUser;
+
+  String _fullName = 'User';
+  String _email = 'No email available';
+  String _initials = 'U';
+  String _currentLanguage = 'English';
+
+  bool _isDeletingAccount = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadInitialData();
+  }
+
+  Future<void> _loadInitialData() async {
+    await Future.wait([_loadSavedLanguage(), _loadUserProfile()]);
+  }
+
+  Future<void> _loadSavedLanguage() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final savedLanguage = prefs.getString(_languageKey) ?? 'English';
+
+      if (!mounted) return;
+      setState(() {
+        _currentLanguage = savedLanguage;
+      });
+    } catch (e) {
+      debugPrint('Error loading saved language: $e');
+    }
+  }
+
+  Future<void> _saveLanguage(String language) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_languageKey, language);
+
+      if (!mounted) return;
+      setState(() {
+        _currentLanguage = language;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Language changed to $language'),
+          backgroundColor: const Color(0xFF2D8CE0),
+        ),
+      );
+    } catch (e) {
+      debugPrint('Error saving language: $e');
+    }
+  }
+
+  Future<void> _loadUserProfile() async {
+    _currentUser = FirebaseAuth.instance.currentUser;
+
+    if (_currentUser == null) return;
+
+    try {
+      final userDoc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(_currentUser!.uid)
+          .get();
+
+      final String? firestoreName = userDoc.data()?['fullName'] as String?;
+      final String? firebaseEmail = _currentUser?.email;
+
+      final resolvedName =
+          (firestoreName != null && firestoreName.trim().isNotEmpty)
+          ? firestoreName.trim()
+          : 'User';
+
+      final resolvedEmail =
+          (firebaseEmail != null && firebaseEmail.trim().isNotEmpty)
+          ? firebaseEmail.trim()
+          : 'No email available';
+
+      if (!mounted) return;
+
+      setState(() {
+        _fullName = resolvedName;
+        _email = resolvedEmail;
+        _initials = _generateInitials(resolvedName);
+      });
+    } catch (e) {
+      debugPrint('Error loading Firestore profile: $e');
+    }
+  }
+
+  String _generateInitials(String fullName) {
+    if (fullName.trim().isEmpty) return 'U';
+
+    final parts = fullName
+        .trim()
+        .split(RegExp(r'\s+'))
+        .where((part) => part.isNotEmpty)
+        .toList();
+
+    if (parts.isEmpty) return 'U';
+    if (parts.length == 1) return parts.first[0].toUpperCase();
+
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  Future<void> _showLanguageDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Select language',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _LanguageOptionTile(
+                label: 'English',
+                selected: _currentLanguage == 'English',
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _saveLanguage('English');
+                },
+              ),
+              const SizedBox(height: 8),
+              _LanguageOptionTile(
+                label: 'Hausa',
+                selected: _currentLanguage == 'Hausa',
+                onTap: () async {
+                  Navigator.pop(context);
+                  await _saveLanguage('Hausa');
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _showAboutAppDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'About App',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const SingleChildScrollView(
+            child: Text(
+              'Python Mai Farawa is a beginner-friendly mobile learning application '
+              'designed to help users learn Python programming step by step in a simple '
+              'and accessible way.\n\n'
+              'The app provides lessons, quizzes, practice exercises, learning progress '
+              'tracking, and bilingual support to improve the learning experience.\n\n'
+              'This application was developed as part of an academic software engineering '
+              'project.',
+              style: TextStyle(fontSize: 15, height: 1.5),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showLogoutDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Logout?',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text('Are you sure you want to logout?'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('No'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(dialogContext);
+                await FirebaseAuth.instance.signOut();
+
+                if (!mounted) return;
+                Navigator.pop(context, true);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFFF453A),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Yes'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _confirmDeleteAccount() async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: const Text(
+            'Delete account?',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: const Text(
+            'This will permanently delete your account and profile data. '
+            'This action cannot be undone.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFE53935),
+                foregroundColor: Colors.white,
+              ),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) return;
+
+    await _deleteAccount();
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) return;
+
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user.uid)
+          .delete();
+      await user.delete();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Account deleted successfully'),
+          backgroundColor: Color(0xFF2D8CE0),
+        ),
+      );
+
+      Navigator.pop(context, true);
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message = 'Failed to delete account. Please try again.';
+
+      if (e.code == 'requires-recent-login') {
+        message =
+            'For security reasons, please log out, log in again, then try deleting your account.';
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFFE53935),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'An unexpected error occurred while deleting the account.',
+          ),
+          backgroundColor: Color(0xFFE53935),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isDeletingAccount = false;
+      });
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    // Display text based on notification state.
-    final String notificationText = _notificationsEnabled ? 'Kunnawa' : 'Kashe';
-
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
       appBar: AppBar(
@@ -32,7 +343,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         titleSpacing: 0,
         title: const Text(
-          'Saituna',
+          'Settings',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
@@ -40,20 +351,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
         ),
       ),
-
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(22),
-
-          // Main column for the whole page.
           child: Column(
             children: [
-              // Top section takes remaining space.
               Expanded(
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      // Profile card section.
                       Container(
                         width: double.infinity,
                         padding: const EdgeInsets.all(16),
@@ -63,7 +369,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                         child: Row(
                           children: [
-                            // Circle avatar.
                             Container(
                               width: 58,
                               height: 58,
@@ -71,10 +376,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 color: Color(0xFFE7EEF5),
                                 shape: BoxShape.circle,
                               ),
-                              child: const Center(
+                              child: Center(
                                 child: Text(
-                                  'JD',
-                                  style: TextStyle(
+                                  _initials,
+                                  style: const TextStyle(
                                     fontSize: 24,
                                     fontWeight: FontWeight.w700,
                                     color: Color(0xFF2D8CE0),
@@ -83,24 +388,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               ),
                             ),
                             const SizedBox(width: 14),
-
-                            // User details.
-                            const Expanded(
+                            Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'John Doe',
-                                    style: TextStyle(
+                                    _fullName,
+                                    style: const TextStyle(
                                       fontSize: 16,
                                       fontWeight: FontWeight.w700,
                                       color: Colors.black,
                                     ),
                                   ),
-                                  SizedBox(height: 4),
+                                  const SizedBox(height: 4),
                                   Text(
-                                    'johndoe@gmail.com',
-                                    style: TextStyle(
+                                    _email,
+                                    style: const TextStyle(
                                       fontSize: 14,
                                       color: Colors.black54,
                                     ),
@@ -112,33 +415,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         ),
                       ),
                       const SizedBox(height: 18),
-
-                      // Language settings row.
                       SettingsRow(
-                        title: 'Harshe',
+                        title: 'Language',
                         trailingText: _currentLanguage,
                         onTap: _showLanguageDialog,
                       ),
                       const SizedBox(height: 10),
-
-                      // Notification settings row.
                       SettingsRow(
-                        title: 'Sanarwa',
-                        trailingText: notificationText,
-                        onTap: _toggleNotifications,
+                        title: 'About App',
+                        onTap: _showAboutAppDialog,
                       ),
-                      const SizedBox(height: 10),
-
-                      // About app row.
-                      const SettingsRow(title: 'Game da Wannan Aikace-aikace'),
                     ],
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
-
-              // Bottom action buttons stay fixed near the bottom.
               SizedBox(
                 width: double.infinity,
                 height: 56,
@@ -152,25 +443,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Fita',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                  child: const Text(
+                    'Logout',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
               ),
               const SizedBox(height: 14),
-
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: OutlinedButton(
-                  onPressed: _confirmResetProgress,
+                  onPressed: _isDeletingAccount ? null : _confirmDeleteAccount,
                   style: OutlinedButton.styleFrom(
                     foregroundColor: const Color(0xFFFF453A),
                     side: const BorderSide(
@@ -182,16 +466,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Align(
-                    alignment: Alignment.center,
-                    child: Text(
-                      'Share hana lissafina',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
+                  child: _isDeletingAccount
+                      ? const SizedBox(
+                          width: 22,
+                          height: 22,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text(
+                          'Delete account',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
                 ),
               ),
             ],
@@ -200,142 +487,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ),
     );
   }
-
-  // Toggles notification state between ON and OFF.
-  void _toggleNotifications() {
-    setState(() {
-      _notificationsEnabled = !_notificationsEnabled;
-    });
-  }
-
-  // Shows confirmation dialog before resetting progress.
-  Future<void> _confirmResetProgress() async {
-    final bool? shouldReset = await showDialog<bool>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Share bayanai?',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: const Text(
-            'Wannan zai goge duk ci gaban da ka yi a laccoci. Kana son ka ci gaba?',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context, false),
-              child: const Text('A’a'),
-            ),
-            ElevatedButton(
-              onPressed: () => Navigator.pop(context, true),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFE53935),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Eh'),
-            ),
-          ],
-        );
-      },
-    );
-
-    // Stop here if user cancels reset.
-    if (shouldReset != true) return;
-
-    // Reset lesson progress from shared data source.
-    await LessonData.resetProgress();
-
-    if (!mounted) return;
-
-    // Return to previous screen and trigger refresh there.
-    Navigator.pop(context, true);
-  }
-
-  // Shows confirmation dialog before leaving the settings screen.
-  void _showLogoutDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Fita daga manhaja?',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: const Text('Kana son fita daga wannan shafin saituna?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('A’a'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                Navigator.pop(context);
-                Navigator.pop(context, true);
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFFFF453A),
-                foregroundColor: Colors.white,
-              ),
-              child: const Text('Fita'),
-            ),
-          ],
-        );
-      },
-    );
-  }
-
-  // Opens a dialog for selecting app language.
-  void _showLanguageDialog() {
-    showDialog<void>(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          title: const Text(
-            'Zaɓi harshe',
-            style: TextStyle(fontWeight: FontWeight.w700),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _LanguageOptionTile(
-                label: 'Hausa',
-                selected: _currentLanguage == 'Hausa',
-                onTap: () {
-                  setState(() {
-                    _currentLanguage = 'Hausa';
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              const SizedBox(height: 8),
-              _LanguageOptionTile(
-                label: 'English',
-                selected: _currentLanguage == 'English',
-                onTap: () {
-                  setState(() {
-                    _currentLanguage = 'English';
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
 }
 
-// Reusable tile widget for language selection dialog.
 class _LanguageOptionTile extends StatelessWidget {
   final String label;
   final bool selected;
@@ -363,7 +516,6 @@ class _LanguageOptionTile extends StatelessWidget {
   }
 }
 
-// Reusable settings row widget.
 class SettingsRow extends StatelessWidget {
   final String title;
   final String? trailingText;

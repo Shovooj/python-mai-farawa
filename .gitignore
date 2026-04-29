@@ -73,3 +73,6 @@ app.*.map.json
 
 # Coverage
 coverage/
+
+#Project evidence
+project-evidence/

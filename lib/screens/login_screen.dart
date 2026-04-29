@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'signup_screen.dart';
-import 'home_screen.dart';
 import '../services/auth_service.dart';
 
 // This screen allows existing users to log in to the app.
@@ -67,10 +66,9 @@ class _LoginScreenState extends State<LoginScreen> {
         context,
       ).showSnackBar(const SnackBar(content: Text('Login successful.')));
 
-      Navigator.pushReplacement(
-        context,
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
+      // Do not navigate manually here.
+      // AuthGate in main.dart will detect the signed-in user
+      // and move the app into the signed-in flow automatically
     } else {
       // If there is an error message, show it to the user.
       ScaffoldMessenger.of(
