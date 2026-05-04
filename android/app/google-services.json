@@ -12,7 +12,20 @@
           "package_name": "com.example.python_mai_farawa"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1094751435794-urfuep1uvb7017pekvbap84hdfded4a4.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.python_mai_farawa",
+            "certificate_hash": "cf33138eb3f095bbe0742afa2e77d4a946833aa0"
+          }
+        },
+        {
+          "client_id": "1094751435794-pt0rt7o4sjg0goc20jao2ji6lria4r6h.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyAtI_UPisfB9p7jrn0YPrsBmS5x8rzOCWo"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1094751435794-pt0rt7o4sjg0goc20jao2ji6lria4r6h.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1094751435794-nlpemdmkca2lm29jlavlbcfha11qku74.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.pythonMaiFarawa"
+              }
+            }
+          ]
         }
       }
     }

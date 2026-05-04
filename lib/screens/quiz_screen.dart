@@ -8,6 +8,8 @@ import '../services/local_lesson_content_service.dart';
 import 'lesson_header_tabs.dart';
 import 'quiz_result_screen.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class QuizScreen extends StatefulWidget {
   final Lesson lesson;
@@ -18,9 +20,17 @@ class QuizScreen extends StatefulWidget {
   State<QuizScreen> createState() => _QuizScreenState();
 }
 
-final lang = 'en'; // temporary for now, until settings is connected
-
 class _QuizScreenState extends State<QuizScreen> {
+  Future<QuizModel?>? _quizFuture;
+  Future<List<QuestionModel>>? _questionsFuture;
+  String? _loadedQuizId;
+
+  @override
+  void initState() {
+    super.initState();
+    _quizFuture = loadQuiz();
+  }
+
   final FirestoreService firestoreService = FirestoreService();
   final LocalLessonContentService localLessonContentService =
       LocalLessonContentService();
@@ -34,6 +44,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   Future<QuizModel?> loadQuiz() async {
+    final lang = context.read<LanguageProvider>().languageCode;
     if (await hasInternet()) {
       try {
         final onlineQuiz = await firestoreService.getQuizByLessonId(
@@ -44,7 +55,7 @@ class _QuizScreenState extends State<QuizScreen> {
           await localLessonContentService.cacheQuiz(
             quizId: onlineQuiz.quizId,
             lessonId: onlineQuiz.lessonId,
-            title: onlineQuiz.title,
+            title: onlineQuiz.titleForLang(lang),
             passingScore: onlineQuiz.passingScore,
             totalQuestions: onlineQuiz.totalQuestions,
           );
@@ -159,6 +170,7 @@ class _QuizScreenState extends State<QuizScreen> {
   }
 
   int correctAnswerIndex(QuestionModel question) {
+    final lang = context.read<LanguageProvider>().languageCode;
     final correct = question.correctAnswer.trim();
 
     if (correct == 'A' || correct == 'a') return 0;
@@ -166,27 +178,24 @@ class _QuizScreenState extends State<QuizScreen> {
     if (correct == 'C' || correct == 'c') return 2;
     if (correct == 'D' || correct == 'd') return 3;
 
-    if (correct == question.optionA) return 0;
-    if (correct == question.optionB) return 1;
-    if (correct == question.optionC) return 2;
-    if (correct == question.optionD) return 3;
+    if (correct == question.optionAForLang(lang)) return 0;
+    if (correct == question.optionBForLang(lang)) return 1;
+    if (correct == question.optionCForLang(lang)) return 2;
+    if (correct == question.optionDForLang(lang)) return 3;
 
     return 0;
   }
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF2D8CE0),
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_rounded),
-          color: Colors.white,
-          onPressed: () => Navigator.pop(context),
-        ),
-        titleSpacing: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 12,
         title: Text(
           '${AppStrings.text(lang, 'lesson')} ${widget.lesson.lessonNumber}: ${widget.lesson.title}',
           style: const TextStyle(
@@ -201,7 +210,7 @@ class _QuizScreenState extends State<QuizScreen> {
           LessonHeaderTabs(activeTab: AppStrings.text(lang, 'activeTabQuiz')),
           Expanded(
             child: FutureBuilder<QuizModel?>(
-              future: loadQuiz(),
+              future: _quizFuture,
               builder: (context, quizSnapshot) {
                 if (quizSnapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -226,8 +235,13 @@ class _QuizScreenState extends State<QuizScreen> {
                   );
                 }
 
+                if (_loadedQuizId != quiz.quizId) {
+                  _loadedQuizId = quiz.quizId;
+                  _questionsFuture = loadQuestions(quiz.quizId);
+                }
+
                 return FutureBuilder<List<QuestionModel>>(
-                  future: loadQuestions(quiz.quizId),
+                  future: _questionsFuture,
                   builder: (context, questionSnapshot) {
                     if (questionSnapshot.connectionState ==
                         ConnectionState.waiting) {
@@ -264,10 +278,10 @@ class _QuizScreenState extends State<QuizScreen> {
                         currentQuestionIndex == questions.length - 1;
 
                     final options = [
-                      question.optionA,
-                      question.optionB,
-                      question.optionC,
-                      question.optionD,
+                      question.optionAForLang(lang),
+                      question.optionBForLang(lang),
+                      question.optionCForLang(lang),
+                      question.optionDForLang(lang),
                     ];
 
                     return Padding(
@@ -298,7 +312,7 @@ class _QuizScreenState extends State<QuizScreen> {
                           ),
                           const SizedBox(height: 18),
                           Text(
-                            question.questionText,
+                            question.questionTextForLang(lang),
                             style: const TextStyle(
                               fontSize: 18,
                               height: 1.4,

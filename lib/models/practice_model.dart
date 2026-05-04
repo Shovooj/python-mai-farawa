@@ -38,6 +38,29 @@ class PracticeModel {
     );
   }
 
+  String titleForLang(String lang) {
+    if (lang == 'ha' || lang == 'hausa') {
+      return (titleHa.trim().isNotEmpty) ? titleHa : title;
+    }
+    return title;
+  }
+
+  String instructionForLang(String lang) {
+    if (lang == 'ha' || lang == 'hausa') {
+      return (instructionHa.trim().isNotEmpty) ? instructionHa : instruction;
+    }
+    return instruction;
+  }
+
+  String expectedOutputForLang(String lang) {
+    if (lang == 'ha' || lang == 'hausa') {
+      return (expectedOutputHa.trim().isNotEmpty)
+          ? expectedOutputHa
+          : expectedOutput;
+    }
+    return expectedOutput;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'practiceId': practiceId,

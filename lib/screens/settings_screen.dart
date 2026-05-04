@@ -6,7 +6,8 @@ import '../services/lesson_translation_service.dart';
 import '../services/quiz_translation_service.dart';
 import '../services/question_translation_service.dart';
 import '../services/practice_translation_service.dart';
-import '../services/language_service.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -16,8 +17,6 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  final LanguageService _languageService = LanguageService();
-
   User? _currentUser;
 
   String lang = 'ha';
@@ -37,27 +36,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    await _loadSavedLanguage();
     await _loadUserProfile();
-  }
-
-  Future<void> _loadSavedLanguage() async {
-    try {
-      final savedLanguage = await _languageService.getSelectedLanguage();
-
-      if (!mounted) return;
-      setState(() {
-        lang = savedLanguage;
-        _currentLanguage = savedLanguage == 'ha' ? 'Hausa' : 'English';
-      });
-    } catch (e) {
-      debugPrint('Error loading saved language: $e');
-    }
   }
 
   Future<void> _saveLanguage(String languageCode) async {
     try {
-      await _languageService.setSelectedLanguage(languageCode);
+      await context.read<LanguageProvider>().setLanguage(languageCode);
 
       if (!mounted) return;
 
@@ -293,6 +277,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           content: SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
             child: Text(
               AppStrings.text(lang, 'aboutAppDescription'),
               style: const TextStyle(fontSize: 15, height: 1.5),
@@ -443,6 +428,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final currentLangCode = context.watch<LanguageProvider>().languageCode;
+    lang = currentLangCode;
+    _currentLanguage = currentLangCode == 'ha' ? 'Hausa' : 'English';
     return Scaffold(
       backgroundColor: const Color(0xFFF3F3F3),
       appBar: AppBar(
@@ -540,10 +528,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         const SizedBox(height: 10),
                         ElevatedButton(
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             try {
                               await translateAllLessonsToHausa();
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Lesson translation to Hausa completed.',
@@ -552,7 +541,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               );
                             } catch (e) {
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Translation failed: $e'),
                                 ),
@@ -568,10 +557,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         ElevatedButton(
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             try {
                               await translateAllQuizzesToHausa();
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Quiz translation to Hausa completed.',
@@ -580,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               );
                             } catch (e) {
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Translation failed: $e'),
                                 ),
@@ -596,10 +586,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         ElevatedButton(
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             try {
                               await translateAllQuestionsToHausa();
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Questions translation to Hausa completed.',
@@ -608,7 +599,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               );
                             } catch (e) {
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Translation failed: $e'),
                                 ),
@@ -627,10 +618,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                         ElevatedButton(
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             try {
                               await translateAllPracticesToHausa();
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Practice translation to Hausa completed.',
@@ -639,7 +631,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               );
                             } catch (e) {
                               if (!mounted) return;
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 SnackBar(
                                   content: Text('Translation failed: $e'),
                                 ),

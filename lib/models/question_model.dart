@@ -53,6 +53,41 @@ class QuestionModel {
     );
   }
 
+  String questionTextForLang(String lang) {
+    if (lang == 'ha') {
+      return (questionTextHa.trim().isNotEmpty) ? questionTextHa : questionText;
+    }
+    return questionText;
+  }
+
+  String optionAForLang(String lang) {
+    if (lang == 'ha') {
+      return (optionAHa.trim().isNotEmpty) ? optionAHa : optionA;
+    }
+    return optionA;
+  }
+
+  String optionBForLang(String lang) {
+    if (lang == 'ha') {
+      return (optionBHa.trim().isNotEmpty) ? optionBHa : optionB;
+    }
+    return optionB;
+  }
+
+  String optionCForLang(String lang) {
+    if (lang == 'ha') {
+      return (optionCHa.trim().isNotEmpty) ? optionCHa : optionC;
+    }
+    return optionC;
+  }
+
+  String optionDForLang(String lang) {
+    if (lang == 'ha') {
+      return (optionDHa.trim().isNotEmpty) ? optionDHa : optionD;
+    }
+    return optionD;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'questionId': questionId,

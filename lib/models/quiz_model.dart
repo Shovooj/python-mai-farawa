@@ -26,6 +26,13 @@ class QuizModel {
     );
   }
 
+  String titleForLang(String lang) {
+    if (lang == 'ha') {
+      return (titleHa.trim().isNotEmpty) ? titleHa : title;
+    }
+    return title;
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'quizId': quizId,

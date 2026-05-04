@@ -13,8 +13,9 @@ import '../services/local_video_service.dart';
 import '../services/local_lesson_content_service.dart';
 import '../services/firestore_service.dart';
 import '../localization/app_strings.dart';
-
-final lang = 'en'; // temporary for now, until settings is connected
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
+import 'home_screen.dart';
 
 class LessonDetailScreen extends StatefulWidget {
   final Lesson lesson;
@@ -40,7 +41,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   bool _isDownloadingVideo = false;
   bool _isVideoAvailableOffline = false;
-  String? _localVideoPath;
 
   int _lastSavedSecond = 0;
   bool _isSavingVideoProgress = false;
@@ -52,6 +52,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<String> _getUid() async {
+    final lang = context.watch<LanguageProvider>().languageCode;
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
@@ -246,7 +248,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       );
 
       if (localFile != null) {
-        _localVideoPath = localFile.path;
         _isVideoAvailableOffline = true;
         _videoController = VideoPlayerController.file(File(localFile.path));
       } else {
@@ -284,7 +285,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         videoUrl: videoUrl,
       );
 
-      _localVideoPath = file.path;
       _isVideoAvailableOffline = true;
 
       await _videoController?.dispose();
@@ -309,6 +309,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         _hasVideoError = false;
       });
 
+      final lang = context.watch<LanguageProvider>().languageCode;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(AppStrings.text(lang, 'videoDownloadedForOfflineUse')),
@@ -316,6 +318,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+
+      final lang = context.watch<LanguageProvider>().languageCode;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -332,8 +336,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> _openQuiz() async {
-    if (!mounted) return;
     await cacheLessonContentForOffline();
+    if (!mounted) return;
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -380,6 +384,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     final lesson = widget.lesson;
 
     return Scaffold(
@@ -389,11 +394,19 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
+          onPressed: () {
+            Navigator.pushAndRemoveUntil(
+              context,
+              MaterialPageRoute(builder: (_) => const HomeScreen()),
+              (route) => false,
+            );
+          },
         ),
         titleSpacing: 0,
         title: Text(
-          '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
+          '${AppStrings.text(lang, 'lesson')} '
+          '${lesson.lessonNumber}: '
+          '${lesson.titleForLang(lang)}',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -406,6 +419,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           LessonHeaderTabs(activeTab: AppStrings.text(lang, 'activeTabVideo')),
           Expanded(
             child: SingleChildScrollView(
+              physics: const ClampingScrollPhysics(),
               child: Padding(
                 padding: const EdgeInsets.all(16),
                 child: Column(
@@ -491,7 +505,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      lesson.description,
+                      lesson.descriptionForLang(lang),
                       style: const TextStyle(
                         fontSize: 15,
                         height: 1.5,

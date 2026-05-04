@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'signup_screen.dart';
 import '../services/auth_service.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 // This screen allows existing users to log in to the app.
 class LoginScreen extends StatefulWidget {
@@ -10,8 +12,6 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
-
-final lang = 'en'; // temporary for now, until settings is connected
 
 class _LoginScreenState extends State<LoginScreen> {
   // These controllers hold what the user types in the fields.
@@ -22,7 +22,8 @@ class _LoginScreenState extends State<LoginScreen> {
   final AuthService _authService = AuthService();
 
   // This helps show loading while login is in progress.
-  bool _isLoading = false;
+  bool _isEmailLoading = false;
+  bool _isGoogleLoading = false;
 
   @override
   void dispose() {
@@ -34,6 +35,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   // This handles the login process.
   Future<void> _handleLogin() async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     // Remove keyboard from screen before login starts.
     FocusScope.of(context).unfocus();
 
@@ -48,7 +51,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // Show loading state while Firebase login is running.
     setState(() {
-      _isLoading = true;
+      _isEmailLoading = true;
     });
 
     // Try logging the user in with Firebase Authentication.
@@ -60,7 +63,7 @@ class _LoginScreenState extends State<LoginScreen> {
     // Stop loading after the request is complete.
     if (!mounted) return;
     setState(() {
-      _isLoading = false;
+      _isEmailLoading = false;
     });
 
     // If result is null, login was successful.
@@ -80,14 +83,46 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    final lang = context.read<LanguageProvider>().languageCode;
+    final messenger = ScaffoldMessenger.of(context);
+
+    FocusScope.of(context).unfocus();
+
+    setState(() {
+      _isGoogleLoading = true;
+    });
+
+    final String? result = await _authService.signInWithGoogle();
+
+    if (!mounted) return;
+
+    setState(() {
+      _isGoogleLoading = false;
+    });
+
+    if (result == null) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(AppStrings.text(lang, 'loginSuccessful'))),
+      );
+
+      // No manual navigation here.
+      // AuthGate will move the user automatically.
+    } else {
+      messenger.showSnackBar(SnackBar(content: Text(result)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     return Scaffold(
       // White background for this screen.
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
 
       body: SafeArea(
         child: SingleChildScrollView(
+          physics: const ClampingScrollPhysics(),
           // This helps prevent overflow, especially when the keyboard opens.
           child: Padding(
             padding: const EdgeInsets.symmetric(
@@ -148,9 +183,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   width: double.infinity,
                   height: 56,
                   child: OutlinedButton(
-                    onPressed: () {
-                      // Google sign-in can be added later.
-                    },
+                    onPressed: (_isEmailLoading || _isGoogleLoading)
+                        ? null
+                        : _handleGoogleSignIn,
                     style: OutlinedButton.styleFrom(
                       backgroundColor: Colors.white,
                       side: BorderSide(color: Colors.grey.shade300, width: 1.2),
@@ -158,24 +193,37 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: RichText(
-                      text: TextSpan(
-                        style: const TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                        children: [
-                          TextSpan(
-                            text: AppStrings.text(lang, 'continueWith'),
-                            style: const TextStyle(color: Colors.black),
+                    child: _isGoogleLoading
+                        ? const SizedBox(
+                            width: 24,
+                            height: 24,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 3,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Color(0xFF2D8CE0),
+                              ),
+                            ),
+                          )
+                        : RichText(
+                            text: TextSpan(
+                              style: const TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w600,
+                              ),
+                              children: [
+                                TextSpan(
+                                  text: AppStrings.text(lang, 'continueWith'),
+                                  style: const TextStyle(color: Colors.black),
+                                ),
+                                TextSpan(
+                                  text: AppStrings.text(lang, 'google'),
+                                  style: const TextStyle(
+                                    color: Color(0xFF2D8CE0),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                          TextSpan(
-                            text: AppStrings.text(lang, 'google'),
-                            style: const TextStyle(color: Color(0xFF2D8CE0)),
-                          ),
-                        ],
-                      ),
-                    ),
                   ),
                 ),
 
@@ -267,12 +315,14 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 28),
 
-                // Login button.
+                // Email Login button.
                 SizedBox(
                   width: double.infinity,
                   height: 58,
                   child: ElevatedButton(
-                    onPressed: _isLoading ? null : _handleLogin,
+                    onPressed: (_isEmailLoading || _isGoogleLoading)
+                        ? null
+                        : _handleLogin,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF2D8CE0),
                       foregroundColor: Colors.white,
@@ -281,7 +331,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: _isLoading
+                    child: _isEmailLoading
                         ? const SizedBox(
                             width: 24,
                             height: 24,
@@ -332,16 +382,6 @@ class _LoginScreenState extends State<LoginScreen> {
                     ),
                   ],
                 ),
-
-                const SizedBox(height: 40),
-
-                // Language display text.
-                const Text(
-                  'English | Hausa',
-                  style: TextStyle(fontSize: 14, color: Colors.black54),
-                ),
-
-                const SizedBox(height: 12),
               ],
             ),
           ),

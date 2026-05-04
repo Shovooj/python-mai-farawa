@@ -8,6 +8,8 @@ import 'lesson_list_screen.dart';
 import 'progress_screen.dart';
 import 'settings_screen.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,8 +17,6 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
-
-final lang = 'en'; // temporary for now, until settings is connected
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
@@ -52,8 +52,29 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Future<void> openLessonDetail(Lesson lesson, bool completed) async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
+    if (completed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'lessonAlreadyCompleted')),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => LessonDetailScreen(lesson: lesson),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -187,6 +208,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 children: [
                   Expanded(
                     child: SingleChildScrollView(
+                      physics: const ClampingScrollPhysics(),
                       child: Container(
                         color: const Color(0xFFF5F5F5),
                         child: Padding(
@@ -272,7 +294,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            '${AppStrings.text(lang, 'lesson')} ${lessonToContinue.lessonNumber}: ${lessonToContinue.title}',
+                                            '${AppStrings.text(lang, 'lesson')} '
+                                            '${lessonToContinue.lessonNumber}: '
+                                            '${lessonToContinue.titleForLang(lang)}',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               color: Colors.black54,
@@ -335,7 +359,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
                                   return GestureDetector(
                                     onTap: unlocked
-                                        ? () => _openLessonDetail(lesson)
+                                        ? () => openLessonDetail(
+                                            lesson,
+                                            completed,
+                                          )
                                         : null,
                                     child: Opacity(
                                       opacity: unlocked ? 1.0 : 0.6,
@@ -358,7 +385,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                   CrossAxisAlignment.start,
                                               children: [
                                                 Text(
-                                                  lesson.title,
+                                                  lesson.titleForLang(lang),
                                                   maxLines: 2,
                                                   overflow:
                                                       TextOverflow.ellipsis,

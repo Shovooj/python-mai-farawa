@@ -12,8 +12,8 @@ import 'lesson_header_tabs.dart';
 import 'practice_screen.dart';
 import 'quiz_screen.dart';
 import '../localization/app_strings.dart';
-
-final lang = 'en'; // temporary for now, until settings is connected
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class QuizResultScreen extends StatelessWidget {
   final Lesson lesson;
@@ -34,15 +34,17 @@ class QuizResultScreen extends StatelessWidget {
     return !result.contains(ConnectivityResult.none);
   }
 
-  Future<String> getUid() async {
+  Future<String> getUid(BuildContext context) async {
+    final lang = context.read<LanguageProvider>().languageCode;
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null)
+    if (user == null) {
       throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
+    }
     return user.uid;
   }
 
-  Future<void> saveQuizProgressOfflineFirst() async {
-    final uid = await getUid();
+  Future<void> saveQuizProgressOfflineFirst(BuildContext context) async {
+    final uid = await getUid(context);
     final localProgressService = LocalProgressService();
     final progressSyncService = ProgressSyncService();
     final progressService = ProgressService();
@@ -75,7 +77,7 @@ class QuizResultScreen extends StatelessWidget {
       'lessonId': lesson.lessonId,
       'lessonCompleted': lessonCompleted ? 1 : 0,
       'practiceCompleted': practiceCompleted ? 1 : 0,
-      'quizCompleted': quizCompleted ? 1 : 0,
+      'quizCompleted': 1,
       'videoViewed': videoViewed ? 1 : 0,
       'score': bestScore,
       'videoPositionSeconds': videoPositionSeconds,
@@ -115,11 +117,12 @@ class QuizResultScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     final percentage = totalQuestions == 0
         ? 0
         : ((score / totalQuestions) * 100).round();
     final passMark = quiz.passingScore;
-    final hasPassed = percentage >= passMark;
+    final hasPassed = score >= passMark;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),

@@ -101,9 +101,9 @@ class AppStrings {
       'completedLessons': 'Completed Lessons',
       'totalLessons': 'Total Lessons',
       'totalProgress': 'Total Progress',
-      'timeSpent': 'Time Spent',
+      'videoTime': 'Video Time',
       'min': 'min',
-      'ofCoursesCompleted': '% of the lessons completed',
+      'ofCoursesCompleted': ' of the lessons completed',
       'noProgressYet': 'No progress yet. Start a lesson to see your progress.',
       'unknownLesson': 'Unknown Lesson',
       'quiz': 'Quiz',
@@ -181,6 +181,9 @@ class AppStrings {
       'activeTabPractice': 'practice',
       'errorLoadingPractice': 'Error loading practice: ',
       'noPracticeFoundForThisLesson': 'No practice found for this lesson.',
+
+      //lesson completion
+      'lessonAlreadyCompleted': 'You already completed this lesson.',
     },
 
     'ha': {
@@ -285,9 +288,9 @@ class AppStrings {
       'completedLessons': 'Darussa da aka kammala',
       'totalLessons': 'Jimlar Darussa',
       'totalProgress': 'Jimlar Ci gaba',
-      'timeSpent': 'jimlar lokacin da aka kashe',
-      'min': 'mintuna',
-      'ofCoursesCompleted': '% na darussan da aka kammala',
+      'videoTime': 'Video Time',
+      'min': 'min',
+      'ofCoursesCompleted': ' na darussan da aka kammala',
       'noProgressYet': 'Babu ci gaba tukuna. Fara darasi don ganin ci gabanka.',
       'unknownLesson': 'Darasi da ba a sani ba',
       'quiz': 'Tambayoyi',
@@ -371,6 +374,9 @@ class AppStrings {
       'errorLoadingPractice': 'Kuskuren lodawa: ',
       'noPracticeFoundForThisLesson':
           'Ba a sami aikin gwaji ba don wannan darasin.',
+
+      //lesson completion
+      'lessonAlreadyCompleted': 'You already completed this lesson.',
     },
   };
 

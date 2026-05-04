@@ -2,6 +2,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../main.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 // SplashScreen is the first screen shown when the app starts.
 // It waits briefly, then opens the login screen.
@@ -11,8 +13,6 @@ class SplashScreen extends StatefulWidget {
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
-
-final lang = 'en'; // temporary for now, until settings is connected
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
@@ -43,6 +43,7 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     const Color primaryBlue = Color(0xFF2D8CE0);
     const Color brandYellow = Color(0xFFF4D24D);
 

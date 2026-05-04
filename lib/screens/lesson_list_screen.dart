@@ -3,6 +3,10 @@ import '../models/lesson_model.dart';
 import '../services/offline_lesson_service.dart';
 import 'lesson_detail_screen.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
+import '../models/progress_model.dart';
+import '../services/progress_service.dart';
 
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
@@ -11,9 +15,8 @@ class LessonListScreen extends StatefulWidget {
   State<LessonListScreen> createState() => _LessonListScreenState();
 }
 
-final lang = 'en'; // temporary for now, until settings is connected
-
 class _LessonListScreenState extends State<LessonListScreen> {
+  final ProgressService _progressService = ProgressService();
   final OfflineLessonService _offlineLessonService = OfflineLessonService();
   String searchQuery = '';
 
@@ -28,7 +31,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
     return localLessonMaps.map((map) => Lesson.fromMap(map)).toList();
   }
 
-  List<Lesson> _filterLessons(List<Lesson> lessons) {
+  List<Lesson> _filterLessons(List<Lesson> lessons, String lang) {
     if (searchQuery.trim().isEmpty) {
       return lessons;
     }
@@ -36,13 +39,33 @@ class _LessonListScreenState extends State<LessonListScreen> {
     final query = searchQuery.toLowerCase();
 
     return lessons.where((lesson) {
-      return lesson.title.toLowerCase().contains(query) ||
-          lesson.description.toLowerCase().contains(query);
+      final title = lesson.titleForLang(lang).toLowerCase();
+      final description = lesson.descriptionForLang(lang).toLowerCase();
+      return title.contains(query) || description.contains(query);
     }).toList();
+  }
+
+  Future<void> openLesson(Lesson lesson, bool completed) async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
+    if (completed) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'lessonAlreadyCompleted')),
+        ),
+      );
+      return;
+    }
+
+    await Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => LessonDetailScreen(lesson: lesson)),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
@@ -109,8 +132,10 @@ class _LessonListScreenState extends State<LessonListScreen> {
                     );
                   }
 
-                  final allLessons = snapshot.data ?? [];
-                  final lessons = _filterLessons(allLessons);
+                  final allLessons = (snapshot.data ?? [])
+                    ..sort((a, b) => a.lessonNumber.compareTo(b.lessonNumber));
+
+                  final lessons = _filterLessons(allLessons, lang);
 
                   if (lessons.isEmpty) {
                     return Center(
@@ -121,75 +146,113 @@ class _LessonListScreenState extends State<LessonListScreen> {
                     );
                   }
 
-                  return ListView.separated(
-                    itemCount: lessons.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (context, index) {
-                      final lesson = lessons[index];
+                  return StreamBuilder<List<ProgressModel>>(
+                    stream: _progressService.getUserProgressStream(),
+                    builder: (context, progressSnapshot) {
+                      if (progressSnapshot.connectionState ==
+                          ConnectionState.waiting) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                      return GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) =>
-                                  LessonDetailScreen(lesson: lesson),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(18),
+                      if (progressSnapshot.hasError) {
+                        return Center(
+                          child: Text(
+                            '${AppStrings.text(lang, 'errorLoadingProgress')} ${progressSnapshot.error}',
+                            textAlign: TextAlign.center,
                           ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 14,
-                          ),
-                          child: Row(
-                            children: [
-                              CircleAvatar(
-                                radius: 22,
-                                backgroundColor: const Color(
-                                  0xFF2D8CE0,
-                                ).withValues(alpha: 0.12),
-                                child: Text(
-                                  '${lesson.lessonNumber}',
-                                  style: const TextStyle(
-                                    color: Color(0xFF2D8CE0),
-                                    fontWeight: FontWeight.w700,
-                                  ),
+                        );
+                      }
+
+                      final progressList = progressSnapshot.data ?? [];
+
+                      final Map<String, ProgressModel> progressMap = {
+                        for (final progress in progressList)
+                          progress.lessonId: progress,
+                      };
+
+                      bool isLessonUnlocked(Lesson lesson) {
+                        final sortedIndex = allLessons.indexWhere(
+                          (item) => item.lessonId == lesson.lessonId,
+                        );
+
+                        if (sortedIndex <= 0) return true;
+
+                        final previousLesson = allLessons[sortedIndex - 1];
+                        final previousProgress =
+                            progressMap[previousLesson.lessonId];
+
+                        return previousProgress?.lessonCompleted == true;
+                      }
+
+                      return ListView.separated(
+                        itemCount: lessons.length,
+                        separatorBuilder: (context, index) =>
+                            const SizedBox(height: 10),
+                        itemBuilder: (context, index) {
+                          final lesson = lessons[index];
+                          final unlocked = isLessonUnlocked(lesson);
+                          final completed =
+                              progressMap[lesson.lessonId]?.lessonCompleted ==
+                              true;
+
+                          return GestureDetector(
+                            onTap: unlocked
+                                ? () => openLesson(lesson, completed)
+                                : null,
+                            child: Opacity(
+                              opacity: unlocked ? 1.0 : 0.6,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(18),
                                 ),
-                              ),
-                              const SizedBox(width: 14),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 14,
+                                ),
+                                child: Row(
                                   children: [
-                                    Text(
-                                      lesson.title,
-                                      style: const TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w700,
+                                    CircleAvatar(
+                                      radius: 22,
+                                      backgroundColor: const Color(
+                                        0xFF2D8CE0,
+                                      ).withValues(alpha: 0.12),
+                                      child: Text(
+                                        '${lesson.lessonNumber}',
+                                        style: const TextStyle(
+                                          color: Color(0xFF2D8CE0),
+                                          fontWeight: FontWeight.w700,
+                                        ),
                                       ),
+                                    ),
+                                    const SizedBox(width: 14),
+                                    Expanded(
+                                      child: Text(
+                                        lesson.titleForLang(lang),
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Icon(
+                                      completed
+                                          ? Icons.check_circle
+                                          : unlocked
+                                          ? Icons.lock_open
+                                          : Icons.lock,
+                                      size: 20,
+                                      color: completed
+                                          ? Colors.green
+                                          : const Color(0xFF2D8CE0),
                                     ),
                                   ],
                                 ),
                               ),
-                              const SizedBox(width: 8),
-                              Icon(
-                                lesson.isPublished
-                                    ? Icons.arrow_forward_ios_rounded
-                                    : Icons.visibility_off_rounded,
-                                size: 18,
-                                color: lesson.isPublished
-                                    ? const Color(0xFF2D8CE0)
-                                    : Colors.grey,
-                              ),
-                            ],
-                          ),
-                        ),
+                            ),
+                          );
+                        },
                       );
                     },
                   );

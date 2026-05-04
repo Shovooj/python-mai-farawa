@@ -17,6 +17,8 @@ import '../services/progress_sync_service.dart';
 import 'lesson_detail_screen.dart';
 import 'lesson_header_tabs.dart';
 import '../localization/app_strings.dart';
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class PracticeScreen extends StatefulWidget {
   final Lesson lesson;
@@ -27,9 +29,8 @@ class PracticeScreen extends StatefulWidget {
   State<PracticeScreen> createState() => _PracticeScreenState();
 }
 
-final lang = 'en'; // temporary for now, until settings is connected
-
 class _PracticeScreenState extends State<PracticeScreen> {
+  late Future<List<PracticeModel>> _practicesFuture;
   final FirestoreService firestoreService = FirestoreService();
   final LocalLessonContentService localLessonContentService =
       LocalLessonContentService();
@@ -44,7 +45,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   final TextEditingController codeController = TextEditingController();
 
-  String output = AppStrings.text(lang, 'resultingCodeWillAppearHere');
+  String output = '';
   bool isRunning = false;
 
   String _initialStarterCode = '';
@@ -53,16 +54,18 @@ class _PracticeScreenState extends State<PracticeScreen> {
   @override
   void initState() {
     super.initState();
+    _practicesFuture = loadPractices();
     _loadExistingPracticeCompletion();
     initializeSkulptRunner();
   }
 
   Future<bool> hasInternet() async {
     final result = await Connectivity().checkConnectivity();
-    return result != ConnectivityResult.none;
+    return !result.contains(ConnectivityResult.none);
   }
 
   Future<String> getUid() async {
+    final lang = context.read<LanguageProvider>().languageCode;
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
       throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
@@ -71,6 +74,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<void> initializeSkulptRunner() async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     try {
       if (mounted) {
         setState(() {
@@ -164,6 +169,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<List<PracticeModel>> loadPractices() async {
+    final lang = context.read<LanguageProvider>().languageCode;
     try {
       if (await hasInternet()) {
         final onlinePractices = await firestoreService.getPracticesByLessonId(
@@ -174,10 +180,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
           await localLessonContentService.cachePractice(
             practiceId: practice.practiceId,
             lessonId: practice.lessonId,
-            title: practice.title,
-            instruction: practice.instruction,
+            title: practice.titleForLang(lang),
+            instruction: practice.instructionForLang(lang),
             starterCode: practice.starterCode,
-            expectedOutput: practice.expectedOutput,
+            expectedOutput: practice.expectedOutputForLang(lang),
             order: practice.order,
           );
         }
@@ -225,6 +231,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<void> runCode() async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     if (!webViewReady) {
       setState(() {
         output = AppStrings.text(lang, 'pythonRunnerStillLoading');
@@ -267,6 +275,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   void clearCode() {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     setState(() {
       codeController.clear();
       output = AppStrings.text(lang, 'yourCodeHasBeenCleared');
@@ -274,6 +284,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   void resetCode() {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     setState(() {
       codeController.text = _initialStarterCode;
       output = AppStrings.text(lang, 'starterCodeRestored');
@@ -330,6 +342,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
     if (!mounted) return;
 
+    final lang = context.read<LanguageProvider>().languageCode;
+
     setState(() {
       practiceCompleted = true;
       output = AppStrings.text(lang, 'practiceTaskMarkedCompleted');
@@ -345,6 +359,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
       );
 
       if (!mounted) return;
+
+      final lang = context.read<LanguageProvider>().languageCode;
 
       if (nextLesson == null) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -362,6 +378,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
     } catch (e) {
       if (!mounted) return;
 
+      final lang = context.read<LanguageProvider>().languageCode;
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
@@ -374,6 +392,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildCodeEditor() {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     return Container(
       width: double.infinity,
       constraints: const BoxConstraints(minHeight: 260),
@@ -382,6 +402,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         color: const Color(0xFF1E1E1E),
         borderRadius: BorderRadius.circular(16),
       ),
+
       child: TextField(
         controller: codeController,
         minLines: 12,
@@ -392,6 +413,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
           height: 1.5,
           fontFamily: 'monospace',
         ),
+
         decoration: InputDecoration(
           border: InputBorder.none,
           hintText: AppStrings.text(lang, 'writePythonCodeHere'),
@@ -402,6 +424,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildOutputCard(PracticeModel practice) {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -441,7 +465,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            '${AppStrings.text(lang, 'expectedOutputPrefix')}: ${practice.expectedOutput}',
+            '${AppStrings.text(lang, 'expectedOutputPrefix')}: ${practice.expectedOutputForLang(lang)}',
             style: const TextStyle(
               fontSize: 13,
               color: Colors.black54,
@@ -454,6 +478,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildActionButtons() {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     return Column(
       children: [
         Row(
@@ -535,6 +561,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Widget _buildCompletionButtons() {
+    final lang = context.read<LanguageProvider>().languageCode;
+
     return Column(
       children: [
         SizedBox(
@@ -629,6 +657,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     final lesson = widget.lesson;
 
     return Scaffold(
@@ -659,7 +688,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
             child: SafeArea(
               top: false,
               child: FutureBuilder<List<PracticeModel>>(
-                future: loadPractices(),
+                future: _practicesFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -707,6 +736,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       Padding(
                         padding: const EdgeInsets.all(16),
                         child: SingleChildScrollView(
+                          physics: const ClampingScrollPhysics(),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
@@ -721,7 +751,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Text(
-                                      practice.title,
+                                      practice.titleForLang(lang),
                                       style: const TextStyle(
                                         fontSize: 20,
                                         fontWeight: FontWeight.w800,
@@ -730,7 +760,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      practice.instruction,
+                                      practice.instructionForLang(lang),
                                       style: const TextStyle(
                                         fontSize: 14,
                                         color: Colors.black54,

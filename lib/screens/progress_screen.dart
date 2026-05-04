@@ -2,14 +2,15 @@ import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../services/progress_service.dart';
 import '../localization/app_strings.dart';
-
-final lang = 'en'; // temporary for now, until settings is connected
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     final ProgressService progressService = ProgressService();
     final FirestoreService firestoreService = FirestoreService();
 
@@ -72,10 +73,6 @@ class ProgressScreen extends StatelessWidget {
                       .toList()
                     ..sort((a, b) => a.lessonNumber.compareTo(b.lessonNumber));
 
-              final lessonMap = {
-                for (final lesson in lessons) lesson.lessonId: lesson,
-              };
-
               final int totalLessons = lessons.length;
               final int completedLessons = progressList
                   .where((item) => item.lessonCompleted == true)
@@ -132,12 +129,11 @@ class ProgressScreen extends StatelessWidget {
                               valueColor: const Color(0xFFFFC107),
                             ),
                           ),
-                          const SizedBox(width: 14),
                           Expanded(
                             child: ProgressCard(
                               value:
                                   '$completedMinutes / $totalMinutes ${AppStrings.text(lang, 'min')}',
-                              label: AppStrings.text(lang, 'timeSpent'),
+                              label: AppStrings.text(lang, 'videoTime'),
                               valueColor: const Color(0xFFFF6B6B),
                             ),
                           ),
@@ -162,81 +158,6 @@ class ProgressScreen extends StatelessWidget {
                           fontSize: 14,
                           color: Colors.black54,
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      Expanded(
-                        child: progressList.isEmpty
-                            ? Center(
-                                child: Text(
-                                  AppStrings.text(lang, 'noProgressYet'),
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    color: Colors.black54,
-                                  ),
-                                ),
-                              )
-                            : ListView.separated(
-                                itemCount: progressList.length,
-                                separatorBuilder: (_, __) =>
-                                    const SizedBox(height: 12),
-                                itemBuilder: (context, index) {
-                                  final item = progressList[index];
-                                  final lesson = lessonMap[item.lessonId];
-                                  final lessonTitle =
-                                      lesson?.title ??
-                                      AppStrings.text(lang, 'unknownLesson');
-                                  final lessonNumber = lesson?.lessonNumber;
-
-                                  return Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: Colors.white,
-                                      borderRadius: BorderRadius.circular(16),
-                                    ),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          item.lessonCompleted
-                                              ? Icons.check_circle
-                                              : Icons.timelapse_rounded,
-                                          color: item.lessonCompleted
-                                              ? Colors.green
-                                              : const Color(0xFF2D8CE0),
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                lessonNumber != null
-                                                    ? '${AppStrings.text(lang, 'lesson')} $lessonNumber: $lessonTitle'
-                                                    : lessonTitle,
-                                                style: const TextStyle(
-                                                  fontSize: 15,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 4),
-                                              Text(
-                                                '${AppStrings.text(lang, 'quiz')}: ${item.quizCompleted ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')} | '
-                                                '${AppStrings.text(lang, 'practice')}: ${item.practiceCompleted ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')} | '
-                                                '${AppStrings.text(lang, 'video')}: ${item.videoViewed ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')}',
-                                                style: const TextStyle(
-                                                  fontSize: 13,
-                                                  color: Colors.black54,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  );
-                                },
-                              ),
                       ),
                     ],
                   ),

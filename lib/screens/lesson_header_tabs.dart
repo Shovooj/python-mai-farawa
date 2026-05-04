@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../localization/app_strings.dart';
-
-final lang = 'en'; // temporary for now, until settings is connected
+import 'package:provider/provider.dart';
+import '../language_provider.dart';
 
 class LessonHeaderTabs extends StatelessWidget {
   final String activeTab;
@@ -10,6 +10,7 @@ class LessonHeaderTabs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final lang = context.watch<LanguageProvider>().languageCode;
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.only(top: 14, left: 22, right: 22),

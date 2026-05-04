@@ -26,7 +26,6 @@ class ProgressService {
     final existingDoc = await docRef.get();
     final data = existingDoc.data() ?? {};
 
-    final bool existingQuizCompleted = data['quizCompleted'] ?? false;
     final int existingScore = data['score'] ?? 0;
 
     final bool finalQuizCompleted = true; // once you call this, quiz is done

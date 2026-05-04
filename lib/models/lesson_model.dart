@@ -40,6 +40,21 @@ class Lesson {
       isPublished: map['isPublished'] == true || map['isPublished'] == 1,
     );
   }
+  String titleForLang(String lang) {
+    if (lang == 'ha' || lang == 'hausa') {
+      // fallback to English if Hausa empty
+      return (titleHa.trim().isNotEmpty) ? titleHa : title;
+    }
+    // default English
+    return title;
+  }
+
+  String descriptionForLang(String lang) {
+    if (lang == 'ha' || lang == 'hausa') {
+      return (descriptionHa.trim().isNotEmpty) ? descriptionHa : description;
+    }
+    return description;
+  }
 
   Map<String, dynamic> toMap() {
     return {
