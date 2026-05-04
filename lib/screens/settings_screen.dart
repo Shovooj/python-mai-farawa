@@ -1,7 +1,12 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import '../localization/app_strings.dart';
+import '../services/lesson_translation_service.dart';
+import '../services/quiz_translation_service.dart';
+import '../services/question_translation_service.dart';
+import '../services/practice_translation_service.dart';
+import '../services/language_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,16 +16,19 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
-  static const String _languageKey = 'app_language';
+  final LanguageService _languageService = LanguageService();
 
   User? _currentUser;
 
-  String _fullName = 'User';
-  String _email = 'No email available';
-  String _initials = 'U';
-  String _currentLanguage = 'English';
+  String lang = 'ha';
+  String _fullName = '';
+  String _email = '';
+  String _initials = '';
+  String _currentLanguage = 'Hausa';
 
   bool _isDeletingAccount = false;
+
+  bool get isAdmin => _currentUser?.email == 'vojo27@gmail.com';
 
   @override
   void initState() {
@@ -29,36 +37,52 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   Future<void> _loadInitialData() async {
-    await Future.wait([_loadSavedLanguage(), _loadUserProfile()]);
+    await _loadSavedLanguage();
+    await _loadUserProfile();
   }
 
   Future<void> _loadSavedLanguage() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final savedLanguage = prefs.getString(_languageKey) ?? 'English';
+      final savedLanguage = await _languageService.getSelectedLanguage();
 
       if (!mounted) return;
       setState(() {
-        _currentLanguage = savedLanguage;
+        lang = savedLanguage;
+        _currentLanguage = savedLanguage == 'ha' ? 'Hausa' : 'English';
       });
     } catch (e) {
       debugPrint('Error loading saved language: $e');
     }
   }
 
-  Future<void> _saveLanguage(String language) async {
+  Future<void> _saveLanguage(String languageCode) async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_languageKey, language);
+      await _languageService.setSelectedLanguage(languageCode);
 
       if (!mounted) return;
+
       setState(() {
-        _currentLanguage = language;
+        lang = languageCode;
+        _currentLanguage = languageCode == 'ha' ? 'Hausa' : 'English';
+
+        if (_currentUser == null) {
+          _fullName = AppStrings.text(lang, 'defaultUser');
+          _email = AppStrings.text(lang, 'noEmailAvailable');
+          _initials = AppStrings.text(lang, 'defaultInitial');
+        }
       });
+
+      await _loadUserProfile();
+
+      if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Language changed to $language'),
+          content: Text(
+            languageCode == 'ha'
+                ? 'An canza harshe zuwa Hausa'
+                : 'Language changed to English',
+          ),
           backgroundColor: const Color(0xFF2D8CE0),
         ),
       );
@@ -67,10 +91,100 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
+  Future<void> translateAllLessonsToHausa() async {
+    final lessonTranslationService = LessonTranslationService();
+    final firestore = FirebaseFirestore.instance;
+
+    final snapshot = await firestore.collection('lessons').get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      await lessonTranslationService.translateLessonToHausa(
+        lessonId: doc.id,
+        title: data['title'] ?? '',
+        description: data['description'] ?? '',
+        titleHa: data['titleHa'],
+        descriptionHa: data['descriptionHa'],
+      );
+    }
+  }
+
+  Future<void> translateAllQuizzesToHausa() async {
+    final quizTranslationService = QuizTranslationService();
+    final firestore = FirebaseFirestore.instance;
+
+    final snapshot = await firestore.collection('quizzes').get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      await quizTranslationService.translateQuizToHausa(
+        quizId: doc.id,
+        title: data['title'] ?? '',
+        titleHa: data['titleHa'],
+      );
+    }
+  }
+
+  Future<void> translateAllQuestionsToHausa() async {
+    final questionTranslationService = QuestionTranslationService();
+    final firestore = FirebaseFirestore.instance;
+
+    final snapshot = await firestore.collection('questions').get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      await questionTranslationService.translateQuestionToHausa(
+        questionId: doc.id,
+        questionText: data['questionText'] ?? '',
+        optionA: data['optionA'] ?? '',
+        optionB: data['optionB'] ?? '',
+        optionC: data['optionC'] ?? '',
+        optionD: data['optionD'] ?? '',
+        questionTextHa: data['questionTextHa'],
+        optionAHa: data['optionAHa'],
+        optionBHa: data['optionBHa'],
+        optionCHa: data['optionCHa'],
+        optionDHa: data['optionDHa'],
+      );
+    }
+  }
+
+  Future<void> translateAllPracticesToHausa() async {
+    final practiceTranslationService = PracticeTranslationService();
+    final firestore = FirebaseFirestore.instance;
+
+    final snapshot = await firestore.collection('practices').get();
+
+    for (final doc in snapshot.docs) {
+      final data = doc.data();
+
+      await practiceTranslationService.translatePracticeToHausa(
+        practiceId: doc.id,
+        title: (data['title'] ?? '').toString(),
+        instruction: (data['instruction'] ?? '').toString(),
+        expectedOutput: (data['expectedOutput'] ?? '').toString(),
+        titleHa: data['titleHa']?.toString(),
+        instructionHa: data['instructionHa']?.toString(),
+        expectedOutputHa: data['expectedOutputHa']?.toString(),
+      );
+    }
+  }
+
   Future<void> _loadUserProfile() async {
     _currentUser = FirebaseAuth.instance.currentUser;
 
-    if (_currentUser == null) return;
+    if (_currentUser == null) {
+      if (!mounted) return;
+      setState(() {
+        _fullName = AppStrings.text(lang, 'defaultUser');
+        _email = AppStrings.text(lang, 'noEmailAvailable');
+        _initials = AppStrings.text(lang, 'defaultInitial');
+      });
+      return;
+    }
 
     try {
       final userDoc = await FirebaseFirestore.instance
@@ -84,12 +198,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final resolvedName =
           (firestoreName != null && firestoreName.trim().isNotEmpty)
           ? firestoreName.trim()
-          : 'User';
+          : AppStrings.text(lang, 'defaultUser');
 
       final resolvedEmail =
           (firebaseEmail != null && firebaseEmail.trim().isNotEmpty)
           ? firebaseEmail.trim()
-          : 'No email available';
+          : AppStrings.text(lang, 'noEmailAvailable');
 
       if (!mounted) return;
 
@@ -100,11 +214,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
       });
     } catch (e) {
       debugPrint('Error loading Firestore profile: $e');
+
+      if (!mounted) return;
+      setState(() {
+        _fullName = AppStrings.text(lang, 'defaultUser');
+        _email = AppStrings.text(lang, 'noEmailAvailable');
+        _initials = AppStrings.text(lang, 'defaultInitial');
+      });
     }
   }
 
   String _generateInitials(String fullName) {
-    if (fullName.trim().isEmpty) return 'U';
+    if (fullName.trim().isEmpty) {
+      return AppStrings.text(lang, 'defaultInitial');
+    }
 
     final parts = fullName
         .trim()
@@ -112,7 +235,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         .where((part) => part.isNotEmpty)
         .toList();
 
-    if (parts.isEmpty) return 'U';
+    if (parts.isEmpty) return AppStrings.text(lang, 'defaultInitial');
     if (parts.length == 1) return parts.first[0].toUpperCase();
 
     return (parts[0][0] + parts[1][0]).toUpperCase();
@@ -126,28 +249,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'Select language',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          title: Text(
+            AppStrings.text(lang, 'selectLanguage'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               _LanguageOptionTile(
-                label: 'English',
-                selected: _currentLanguage == 'English',
+                label: AppStrings.text(lang, 'english'),
+                selected: lang == 'en',
                 onTap: () async {
                   Navigator.pop(context);
-                  await _saveLanguage('English');
+                  await _saveLanguage('en');
                 },
               ),
               const SizedBox(height: 8),
               _LanguageOptionTile(
-                label: 'Hausa',
-                selected: _currentLanguage == 'Hausa',
+                label: AppStrings.text(lang, 'hausa'),
+                selected: lang == 'ha',
                 onTap: () async {
                   Navigator.pop(context);
-                  await _saveLanguage('Hausa');
+                  await _saveLanguage('ha');
                 },
               ),
             ],
@@ -165,26 +288,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'About App',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          title: Text(
+            AppStrings.text(lang, 'aboutApp'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          content: const SingleChildScrollView(
+          content: SingleChildScrollView(
             child: Text(
-              'Python Mai Farawa is a beginner-friendly mobile learning application '
-              'designed to help users learn Python programming step by step in a simple '
-              'and accessible way.\n\n'
-              'The app provides lessons, quizzes, practice exercises, learning progress '
-              'tracking, and bilingual support to improve the learning experience.\n\n'
-              'This application was developed as part of an academic software engineering '
-              'project.',
-              style: TextStyle(fontSize: 15, height: 1.5),
+              AppStrings.text(lang, 'aboutAppDescription'),
+              style: const TextStyle(fontSize: 15, height: 1.5),
             ),
           ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              child: Text(AppStrings.text(lang, 'close')),
             ),
           ],
         );
@@ -200,15 +317,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'Logout?',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          title: Text(
+            AppStrings.text(lang, 'logoutTitle'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          content: const Text('Are you sure you want to logout?'),
+          content: Text(AppStrings.text(lang, 'logoutConfirmation')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('No'),
+              child: Text(AppStrings.text(lang, 'no')),
             ),
             ElevatedButton(
               onPressed: () async {
@@ -222,7 +339,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: const Color(0xFFFF453A),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Yes'),
+              child: Text(AppStrings.text(lang, 'yes')),
             ),
           ],
         );
@@ -238,18 +355,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          title: const Text(
-            'Delete account?',
-            style: TextStyle(fontWeight: FontWeight.w700),
+          title: Text(
+            AppStrings.text(lang, 'deleteAccountTitle'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
           ),
-          content: const Text(
-            'This will permanently delete your account and profile data. '
-            'This action cannot be undone.',
-          ),
+          content: Text(AppStrings.text(lang, 'deleteAccountWarning')),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(dialogContext, false),
-              child: const Text('Cancel'),
+              child: Text(AppStrings.text(lang, 'cancel')),
             ),
             ElevatedButton(
               onPressed: () => Navigator.pop(dialogContext, true),
@@ -257,7 +371,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 backgroundColor: const Color(0xFFE53935),
                 foregroundColor: Colors.white,
               ),
-              child: const Text('Delete'),
+              child: Text(AppStrings.text(lang, 'delete')),
             ),
           ],
         );
@@ -288,9 +402,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Account deleted successfully'),
-          backgroundColor: Color(0xFF2D8CE0),
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'accountDeletedSuccessfully')),
+          backgroundColor: const Color(0xFF2D8CE0),
         ),
       );
 
@@ -298,11 +412,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } on FirebaseAuthException catch (e) {
       if (!mounted) return;
 
-      String message = 'Failed to delete account. Please try again.';
+      String message = AppStrings.text(lang, 'failedToDeleteAccount');
 
       if (e.code == 'requires-recent-login') {
-        message =
-            'For security reasons, please log out, log in again, then try deleting your account.';
+        message = AppStrings.text(lang, 'requiresRecentLogin');
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -315,11 +428,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'An unexpected error occurred while deleting the account.',
-          ),
-          backgroundColor: Color(0xFFE53935),
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'unexpectedDeleteError')),
+          backgroundColor: const Color(0xFFE53935),
         ),
       );
     } finally {
@@ -342,9 +453,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onPressed: () => Navigator.pop(context, true),
         ),
         titleSpacing: 0,
-        title: const Text(
-          'Settings',
-          style: TextStyle(
+        title: Text(
+          AppStrings.text(lang, 'settings'),
+          style: const TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.w700,
             color: Colors.white,
@@ -416,15 +527,133 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       ),
                       const SizedBox(height: 18),
                       SettingsRow(
-                        title: 'Language',
+                        title: AppStrings.text(lang, 'language'),
                         trailingText: _currentLanguage,
                         onTap: _showLanguageDialog,
                       ),
                       const SizedBox(height: 10),
                       SettingsRow(
-                        title: 'About App',
+                        title: AppStrings.text(lang, 'aboutApp'),
                         onTap: _showAboutAppDialog,
                       ),
+                      if (isAdmin) ...[
+                        const SizedBox(height: 10),
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await translateAllLessonsToHausa();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Lesson translation to Hausa completed.',
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Translation failed: $e'),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            AppStrings.text(lang, 'translateAllLessonsToHausa'),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await translateAllQuizzesToHausa();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Quiz translation to Hausa completed.',
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Translation failed: $e'),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            AppStrings.text(lang, 'translateAllQuizzesToHausa'),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await translateAllQuestionsToHausa();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Questions translation to Hausa completed.',
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Translation failed: $e'),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            AppStrings.text(
+                              lang,
+                              'translateAllQuestionsToHausa',
+                            ),
+                          ),
+                        ),
+
+                        const SizedBox(height: 10),
+
+                        ElevatedButton(
+                          onPressed: () async {
+                            try {
+                              await translateAllPracticesToHausa();
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text(
+                                    'Practice translation to Hausa completed.',
+                                  ),
+                                ),
+                              );
+                            } catch (e) {
+                              if (!mounted) return;
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text('Translation failed: $e'),
+                                ),
+                              );
+                            }
+                          },
+                          child: Text(
+                            AppStrings.text(
+                              lang,
+                              'translateAllPracticesToHausa',
+                            ),
+                          ),
+                        ),
+                      ],
                     ],
                   ),
                 ),
@@ -443,9 +672,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  child: const Text(
-                    'Logout',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                  child: Text(
+                    AppStrings.text(lang, 'logout'),
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
               ),
@@ -472,9 +704,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           height: 22,
                           child: CircularProgressIndicator(strokeWidth: 2),
                         )
-                      : const Text(
-                          'Delete account',
-                          style: TextStyle(
+                      : Text(
+                          AppStrings.text(lang, 'deleteAccount'),
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
                           ),

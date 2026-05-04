@@ -2,6 +2,7 @@ class QuizModel {
   final String quizId;
   final String lessonId;
   final String title;
+  final String titleHa;
   final int passingScore;
   final int totalQuestions;
 
@@ -9,6 +10,7 @@ class QuizModel {
     required this.quizId,
     required this.lessonId,
     required this.title,
+    required this.titleHa,
     required this.passingScore,
     required this.totalQuestions,
   });
@@ -18,6 +20,7 @@ class QuizModel {
       quizId: map['quizId'] ?? '',
       lessonId: map['lessonId'] ?? '',
       title: map['title'] ?? '',
+      titleHa: map['titleHa'] ?? '',
       passingScore: map['passingScore'] ?? 0,
       totalQuestions: map['totalQuestions'] ?? 0,
     );
@@ -28,6 +31,7 @@ class QuizModel {
       'quizId': quizId,
       'lessonId': lessonId,
       'title': title,
+      'titleHa': titleHa,
       'passingScore': passingScore,
       'totalQuestions': totalQuestions,
     };

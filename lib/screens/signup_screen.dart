@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'login_screen.dart';
 import '../services/auth_service.dart';
+import '../localization/app_strings.dart';
 
 // This screen allows a new user to create an account.
 class SignUpScreen extends StatefulWidget {
@@ -9,6 +10,8 @@ class SignUpScreen extends StatefulWidget {
   @override
   State<SignUpScreen> createState() => _SignUpScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _SignUpScreenState extends State<SignUpScreen> {
   // These controllers hold what the user types.
@@ -41,7 +44,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
         emailController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please fill in all fields.')),
+        SnackBar(content: Text(AppStrings.text(lang, 'signupEmptyFields'))),
       );
       return;
     }
@@ -67,7 +70,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
     // If result is null, sign-up was successful.
     if (result == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Account created successfully.')),
+        SnackBar(content: Text(AppStrings.text(lang, 'accountCreated'))),
       );
 
       // Clear the fields after successful sign-up.
@@ -127,8 +130,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const SizedBox(height: 28),
 
                 // Welcome text for new users.
-                const Text(
-                  'Start Learning!',
+                Text(
+                  AppStrings.text(lang, 'startLearning'),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -139,8 +142,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const SizedBox(height: 6),
 
                 // Short helper text for the sign-up screen.
-                const Text(
-                  'Create an account to begin today',
+                Text(
+                  AppStrings.text(lang, 'signupSubtitle'),
                   style: TextStyle(
                     fontSize: 15,
                     color: Colors.black54,
@@ -166,18 +169,18 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       ),
                     ),
                     child: RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
+                      text: TextSpan(
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                         children: [
                           TextSpan(
-                            text: 'Continue with ',
-                            style: TextStyle(color: Colors.black),
+                            text: AppStrings.text(lang, 'continueWith'),
+                            style: const TextStyle(color: Colors.black),
                           ),
                           TextSpan(
-                            text: 'Google',
+                            text: AppStrings.text(lang, 'google'),
                             style: TextStyle(color: Color(0xFF2D8CE0)),
                           ),
                         ],
@@ -204,8 +207,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text(
-                      'Continue with Apple',
+                    child: Text(
+                      AppStrings.text(lang, 'continueWithApple'),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -217,8 +220,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 const SizedBox(height: 18),
 
                 // Small divider text before the form fields.
-                const Text(
-                  'or enter your details',
+                Text(
+                  AppStrings.text(lang, 'orEnterDetails'),
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
 
@@ -228,7 +231,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 TextField(
                   controller: nameController,
                   decoration: InputDecoration(
-                    hintText: 'Full name',
+                    hintText: AppStrings.text(lang, 'fullName'),
                     hintStyle: const TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -253,7 +256,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'Email',
+                    hintText: AppStrings.text(lang, 'email'),
                     hintStyle: const TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -278,7 +281,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    hintText: 'Password',
+                    hintText: AppStrings.text(lang, 'password'),
                     hintStyle: const TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -323,8 +326,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                             ),
                           )
-                        : const Text(
-                            'Create Account',
+                        : Text(
+                            AppStrings.text(lang, 'createAccount'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -339,8 +342,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Already have an account? ',
+                    Text(
+                      AppStrings.text(lang, 'alreadyHaveAccount'),
                       style: TextStyle(fontSize: 15, color: Color(0xFF2D8CE0)),
                     ),
                     GestureDetector(
@@ -353,8 +356,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                         );
                       },
-                      child: const Text(
-                        'Log In',
+                      child: Text(
+                        AppStrings.text(lang, 'logIn'),
                         style: TextStyle(
                           fontSize: 15,
                           color: Color(0xFF2D8CE0),

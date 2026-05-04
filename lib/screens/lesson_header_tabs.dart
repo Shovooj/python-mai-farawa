@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import '../localization/app_strings.dart';
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class LessonHeaderTabs extends StatelessWidget {
   final String activeTab;
@@ -15,9 +18,18 @@ class LessonHeaderTabs extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              _HeaderTab(title: 'Video', isActive: activeTab == 'video'),
-              _HeaderTab(title: 'Quiz', isActive: activeTab == 'quiz'),
-              _HeaderTab(title: 'Practice', isActive: activeTab == 'practice'),
+              _HeaderTab(
+                title: AppStrings.text(lang, 'video'),
+                isActive: activeTab == 'video',
+              ),
+              _HeaderTab(
+                title: AppStrings.text(lang, 'quiz'),
+                isActive: activeTab == 'quiz',
+              ),
+              _HeaderTab(
+                title: AppStrings.text(lang, 'practice'),
+                isActive: activeTab == 'practice',
+              ),
             ],
           ),
           const SizedBox(height: 10),

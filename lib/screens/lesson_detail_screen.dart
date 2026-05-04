@@ -12,6 +12,9 @@ import 'dart:io';
 import '../services/local_video_service.dart';
 import '../services/local_lesson_content_service.dart';
 import '../services/firestore_service.dart';
+import '../localization/app_strings.dart';
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class LessonDetailScreen extends StatefulWidget {
   final Lesson lesson;
@@ -51,7 +54,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Future<String> _getUid() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('No signed-in user found.');
+      throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
     }
     return user.uid;
   }
@@ -307,14 +310,18 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Video downloaded for offline use.')),
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'videoDownloadedForOfflineUse')),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
 
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Video download failed: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${AppStrings.text(lang, 'videoDownloadFailed')}$e'),
+        ),
+      );
     } finally {
       if (mounted) {
         setState(() {
@@ -386,7 +393,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         ),
         titleSpacing: 0,
         title: Text(
-          'Lesson ${lesson.lessonNumber}: ${lesson.title}',
+          '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -396,7 +403,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       ),
       body: Column(
         children: [
-          const LessonHeaderTabs(activeTab: 'video'),
+          LessonHeaderTabs(activeTab: AppStrings.text(lang, 'activeTabVideo')),
           Expanded(
             child: SingleChildScrollView(
               child: Padding(
@@ -419,8 +426,14 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                                 color: Colors.black,
                                 child: Text(
                                   _isVideoAvailableOffline
-                                      ? 'Offline video not available'
-                                      : 'Video not available. Download it while online for offline use.',
+                                      ? AppStrings.text(
+                                          lang,
+                                          'offlineVideoNotAvailable',
+                                        )
+                                      : AppStrings.text(
+                                          lang,
+                                          'videoNotAvailableDownloadOnline',
+                                        ),
                                   textAlign: TextAlign.center,
                                   style: const TextStyle(
                                     color: Colors.white,
@@ -468,8 +481,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      'Description',
+                    Text(
+                      AppStrings.text(lang, 'description'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -499,8 +512,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: const Text(
-                          'Start Quiz',
+                        child: Text(
+                          AppStrings.text(lang, 'startQuiz'),
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -537,8 +550,14 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                               )
                             : Text(
                                 _isVideoAvailableOffline
-                                    ? 'Video Downloaded for Offline Use'
-                                    : 'Download Video for Offline Use',
+                                    ? AppStrings.text(
+                                        lang,
+                                        'videoDownloadedOfflineLabel',
+                                      )
+                                    : AppStrings.text(
+                                        lang,
+                                        'downloadVideoOfflineLabel',
+                                      ),
                                 style: const TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w700,

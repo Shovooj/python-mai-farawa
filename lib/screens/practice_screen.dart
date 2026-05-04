@@ -16,6 +16,7 @@ import '../services/progress_service.dart';
 import '../services/progress_sync_service.dart';
 import 'lesson_detail_screen.dart';
 import 'lesson_header_tabs.dart';
+import '../localization/app_strings.dart';
 
 class PracticeScreen extends StatefulWidget {
   final Lesson lesson;
@@ -25,6 +26,8 @@ class PracticeScreen extends StatefulWidget {
   @override
   State<PracticeScreen> createState() => _PracticeScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _PracticeScreenState extends State<PracticeScreen> {
   final FirestoreService firestoreService = FirestoreService();
@@ -41,7 +44,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
   final TextEditingController codeController = TextEditingController();
 
-  String output = 'The resulting code will appear here.';
+  String output = AppStrings.text(lang, 'resultingCodeWillAppearHere');
   bool isRunning = false;
 
   String _initialStarterCode = '';
@@ -62,7 +65,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   Future<String> getUid() async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception('No signed-in user found.');
+      throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
     }
     return user.uid;
   }
@@ -72,7 +75,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
       if (mounted) {
         setState(() {
           webViewReady = false;
-          output = 'Loading Python runner...';
+          output = AppStrings.text(lang, 'loadingPythonRunner');
         });
       }
 
@@ -101,7 +104,10 @@ class _PracticeScreenState extends State<PracticeScreen> {
                 } else if (type == 'success') {
                   isRunning = false;
                   output = messageOutput.trim().isEmpty
-                      ? 'Code executed successfully with no output.'
+                      ? AppStrings.text(
+                          lang,
+                          'codeExecutedSuccessfullyWithNoOutput',
+                        )
                       : messageOutput;
                 } else if (type == 'error') {
                   isRunning = false;
@@ -112,7 +118,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
               if (!mounted) return;
               setState(() {
                 isRunning = false;
-                output = 'Failed to read runner response: $e';
+                output =
+                    '${AppStrings.text(lang, 'failedToReadRunnerResponse')}: $e';
               });
             }
           },
@@ -126,7 +133,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
       if (!mounted) return;
       setState(() {
         webViewReady = false;
-        output = 'Failed to initialize Python runner: $e';
+        output =
+            '${AppStrings.text(lang, 'failedToInitializePythonRunner')}: $e';
       });
     }
   }
@@ -201,6 +209,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       (row['practiceOrder'] as int?) ??
                       (row['order'] as int?) ??
                       0,
+                  titleHa: row['titleHa'] as String? ?? '',
+                  instructionHa: row['instructionHa'] as String? ?? '',
+                  expectedOutputHa: row['expectedOutputHa'] as String? ?? '',
                 ),
               )
               .toList()
@@ -216,7 +227,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
   Future<void> runCode() async {
     if (!webViewReady) {
       setState(() {
-        output = 'Python runner is still loading. Please wait a moment.';
+        output = AppStrings.text(lang, 'pythonRunnerStillLoading');
       });
       return;
     }
@@ -225,14 +236,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
     if (code.isEmpty) {
       setState(() {
-        output = 'Please write Python code before clicking Run.';
+        output = AppStrings.text(lang, 'pleaseWritePythonCodeBeforeRun');
       });
       return;
     }
 
     setState(() {
       isRunning = true;
-      output = 'Running code...';
+      output = AppStrings.text(lang, 'runningCode');
     });
 
     try {
@@ -240,7 +251,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
       if (webViewController == null) {
         setState(() {
           isRunning = false;
-          output = 'Python runner is not ready yet.';
+          output = AppStrings.text(lang, 'pythonRunnerNotReadyYet');
         });
         return;
       }
@@ -250,7 +261,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
       if (!mounted) return;
       setState(() {
         isRunning = false;
-        output = 'Failed to run code: $e';
+        output = '${AppStrings.text(lang, 'failedToRunCode')}: $e';
       });
     }
   }
@@ -258,14 +269,14 @@ class _PracticeScreenState extends State<PracticeScreen> {
   void clearCode() {
     setState(() {
       codeController.clear();
-      output = 'Your code has been cleared.';
+      output = AppStrings.text(lang, 'yourCodeHasBeenCleared');
     });
   }
 
   void resetCode() {
     setState(() {
       codeController.text = _initialStarterCode;
-      output = 'Starter code restored.';
+      output = AppStrings.text(lang, 'starterCodeRestored');
     });
   }
 
@@ -321,7 +332,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
     setState(() {
       practiceCompleted = true;
-      output = 'Practice task marked as completed.';
+      output = AppStrings.text(lang, 'practiceTaskMarkedCompleted');
     });
   }
 
@@ -337,11 +348,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
       if (nextLesson == null) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No next lesson found. You have reached the last lesson.',
-            ),
-          ),
+          SnackBar(content: Text(AppStrings.text(lang, 'noNextLessonFound'))),
         );
         return;
       }
@@ -356,9 +363,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
+        SnackBar(
           content: Text(
-            'Could not open the next lesson offline yet. Please reconnect once to cache the next lesson.',
+            AppStrings.text(lang, 'couldNotOpenNextLessonOfflineYet'),
           ),
         ),
       );
@@ -385,9 +392,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
           height: 1.5,
           fontFamily: 'monospace',
         ),
-        decoration: const InputDecoration(
+        decoration: InputDecoration(
           border: InputBorder.none,
-          hintText: 'Write Python code here...',
+          hintText: AppStrings.text(lang, 'writePythonCodeHere'),
           hintStyle: TextStyle(color: Colors.white54),
         ),
       ),
@@ -405,8 +412,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Output',
+          Text(
+            AppStrings.text(lang, 'output'),
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
@@ -434,7 +441,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
           ),
           const SizedBox(height: 12),
           Text(
-            'Expected output: ${practice.expectedOutput}',
+            '${AppStrings.text(lang, 'expectedOutputPrefix')}: ${practice.expectedOutput}',
             style: const TextStyle(
               fontSize: 13,
               color: Colors.black54,
@@ -464,8 +471,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text(
-                    'Clear Code',
+                  child: Text(
+                    AppStrings.text(lang, 'clearCode'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -485,8 +492,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
-                  child: const Text(
-                    'Reset Code',
+                  child: Text(
+                    AppStrings.text(lang, 'resetCode'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
                 ),
@@ -517,8 +524,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       color: Colors.white,
                     ),
                   )
-                : const Text(
-                    'Run Code',
+                : Text(
+                    AppStrings.text(lang, 'runCode'),
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
                   ),
           ),
@@ -545,8 +552,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
             ),
             child: Text(
               practiceCompleted
-                  ? 'Practice Completed'
-                  : 'Mark Practice Completed',
+                  ? AppStrings.text(lang, 'practiceCompleted')
+                  : AppStrings.text(lang, 'markPracticeCompleted'),
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
             ),
           ),
@@ -571,8 +578,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
-                      'Next Lesson',
+                    child: Text(
+                      AppStrings.text(lang, 'nextLesson'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -597,8 +604,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
                         borderRadius: BorderRadius.circular(10),
                       ),
                     ),
-                    child: const Text(
-                      'Go to Home',
+                    child: Text(
+                      AppStrings.text(lang, 'goToHome'),
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
@@ -634,7 +641,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         title: Padding(
           padding: const EdgeInsets.only(left: 12),
           child: Text(
-            'Lesson ${lesson.lessonNumber}: ${lesson.title}',
+            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -645,7 +652,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
       ),
       body: Column(
         children: [
-          const LessonHeaderTabs(activeTab: 'practice'),
+          LessonHeaderTabs(
+            activeTab: AppStrings.text(lang, 'activeTabPractice'),
+          ),
           Expanded(
             child: SafeArea(
               top: false,
@@ -661,7 +670,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                       child: Padding(
                         padding: const EdgeInsets.all(24),
                         child: Text(
-                          'Error loading practice: ${snapshot.error}',
+                          '${AppStrings.text(lang, 'errorLoadingPractice')}: ${snapshot.error}',
                           textAlign: TextAlign.center,
                         ),
                       ),
@@ -671,9 +680,9 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   final practices = snapshot.data ?? [];
 
                   if (practices.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        'No practice found for this lesson.',
+                        AppStrings.text(lang, 'noPracticeFoundForThisLesson'),
                         style: TextStyle(fontSize: 15, color: Colors.black54),
                       ),
                     );

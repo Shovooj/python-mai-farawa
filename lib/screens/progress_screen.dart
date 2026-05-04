@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../services/progress_service.dart';
+import '../localization/app_strings.dart';
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class ProgressScreen extends StatelessWidget {
   const ProgressScreen({super.key});
@@ -20,8 +23,8 @@ class ProgressScreen extends StatelessWidget {
           onPressed: () => Navigator.pop(context),
         ),
         titleSpacing: 0,
-        title: const Text(
-          'Progress',
+        title: Text(
+          AppStrings.text(lang, 'progress'),
           style: TextStyle(
             fontSize: 22,
             fontWeight: FontWeight.w700,
@@ -39,7 +42,7 @@ class ProgressScreen extends StatelessWidget {
           if (progressSnapshot.hasError) {
             return Center(
               child: Text(
-                'Error loading progress: ${progressSnapshot.error}',
+                '${AppStrings.text(lang, 'errorLoadingProgress')} ${progressSnapshot.error}',
                 textAlign: TextAlign.center,
               ),
             );
@@ -57,7 +60,7 @@ class ProgressScreen extends StatelessWidget {
               if (lessonSnapshot.hasError) {
                 return Center(
                   child: Text(
-                    'Error loading lessons: ${lessonSnapshot.error}',
+                    '${AppStrings.text(lang, 'errorLoadingLessons')} ${lessonSnapshot.error}',
                     textAlign: TextAlign.center,
                   ),
                 );
@@ -105,7 +108,7 @@ class ProgressScreen extends StatelessWidget {
                           Expanded(
                             child: ProgressCard(
                               value: '$completedLessons',
-                              label: 'Completed Lessons',
+                              label: AppStrings.text(lang, 'completedLessons'),
                               valueColor: const Color(0xFF2D8CE0),
                             ),
                           ),
@@ -113,7 +116,7 @@ class ProgressScreen extends StatelessWidget {
                           Expanded(
                             child: ProgressCard(
                               value: '$totalLessons',
-                              label: 'Total Lessons',
+                              label: AppStrings.text(lang, 'totalLessons'),
                               valueColor: const Color(0xFF4CAF50),
                             ),
                           ),
@@ -125,15 +128,16 @@ class ProgressScreen extends StatelessWidget {
                           Expanded(
                             child: ProgressCard(
                               value: '$progressPercent%',
-                              label: 'Total Progress',
+                              label: AppStrings.text(lang, 'totalProgress'),
                               valueColor: const Color(0xFFFFC107),
                             ),
                           ),
                           const SizedBox(width: 14),
                           Expanded(
                             child: ProgressCard(
-                              value: '$completedMinutes / $totalMinutes min',
-                              label: 'Time Spent',
+                              value:
+                                  '$completedMinutes / $totalMinutes ${AppStrings.text(lang, 'min')}',
+                              label: AppStrings.text(lang, 'timeSpent'),
                               valueColor: const Color(0xFFFF6B6B),
                             ),
                           ),
@@ -153,7 +157,7 @@ class ProgressScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        '$progressPercent% of the courses completed',
+                        '$progressPercent% ${AppStrings.text(lang, 'ofCoursesCompleted')}',
                         style: const TextStyle(
                           fontSize: 14,
                           color: Colors.black54,
@@ -162,9 +166,9 @@ class ProgressScreen extends StatelessWidget {
                       const SizedBox(height: 24),
                       Expanded(
                         child: progressList.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
-                                  'No progress yet. Start a lesson to see your progress.',
+                                  AppStrings.text(lang, 'noProgressYet'),
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     fontSize: 15,
@@ -180,7 +184,8 @@ class ProgressScreen extends StatelessWidget {
                                   final item = progressList[index];
                                   final lesson = lessonMap[item.lessonId];
                                   final lessonTitle =
-                                      lesson?.title ?? 'Unknown Lesson';
+                                      lesson?.title ??
+                                      AppStrings.text(lang, 'unknownLesson');
                                   final lessonNumber = lesson?.lessonNumber;
 
                                   return Container(
@@ -207,7 +212,7 @@ class ProgressScreen extends StatelessWidget {
                                             children: [
                                               Text(
                                                 lessonNumber != null
-                                                    ? 'Lesson $lessonNumber: $lessonTitle'
+                                                    ? '${AppStrings.text(lang, 'lesson')} $lessonNumber: $lessonTitle'
                                                     : lessonTitle,
                                                 style: const TextStyle(
                                                   fontSize: 15,
@@ -216,9 +221,9 @@ class ProgressScreen extends StatelessWidget {
                                               ),
                                               const SizedBox(height: 4),
                                               Text(
-                                                'Quiz: ${item.quizCompleted ? "Done" : "Not done"} | '
-                                                'Practice: ${item.practiceCompleted ? "Done" : "Not done"} | '
-                                                'Video: ${item.videoViewed ? "Done" : "Not done"}',
+                                                '${AppStrings.text(lang, 'quiz')}: ${item.quizCompleted ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')} | '
+                                                '${AppStrings.text(lang, 'practice')}: ${item.practiceCompleted ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')} | '
+                                                '${AppStrings.text(lang, 'video')}: ${item.videoViewed ? AppStrings.text(lang, 'done') : AppStrings.text(lang, 'notDone')}',
                                                 style: const TextStyle(
                                                   fontSize: 13,
                                                   color: Colors.black54,

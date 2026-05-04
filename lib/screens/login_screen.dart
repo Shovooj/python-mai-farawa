@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'signup_screen.dart';
 import '../services/auth_service.dart';
+import '../localization/app_strings.dart';
 
 // This screen allows existing users to log in to the app.
 class LoginScreen extends StatefulWidget {
@@ -9,6 +10,8 @@ class LoginScreen extends StatefulWidget {
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _LoginScreenState extends State<LoginScreen> {
   // These controllers hold what the user types in the fields.
@@ -38,7 +41,7 @@ class _LoginScreenState extends State<LoginScreen> {
     if (emailController.text.trim().isEmpty ||
         passwordController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter your email and password.')),
+        SnackBar(content: Text(AppStrings.text(lang, 'loginEmptyFields'))),
       );
       return;
     }
@@ -62,9 +65,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // If result is null, login was successful.
     if (result == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Login successful.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(AppStrings.text(lang, 'loginSuccessful'))),
+      );
 
       // Do not navigate manually here.
       // AuthGate in main.dart will detect the signed-in user
@@ -118,8 +121,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 28),
 
                 // Main welcome text.
-                const Text(
-                  'Welcome Back!',
+                Text(
+                  AppStrings.text(lang, 'welcomeBack'),
                   style: TextStyle(
                     fontSize: 28,
                     fontWeight: FontWeight.w800,
@@ -129,8 +132,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
                 const SizedBox(height: 6),
 
-                const Text(
-                  'Log in to continue learning',
+                Text(
+                  AppStrings.text(lang, 'loginSubtitle'),
                   style: TextStyle(
                     fontSize: 15,
                     color: Colors.black54,
@@ -156,19 +159,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                     child: RichText(
-                      text: const TextSpan(
-                        style: TextStyle(
+                      text: TextSpan(
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
                         children: [
                           TextSpan(
-                            text: 'Continue with ',
-                            style: TextStyle(color: Colors.black),
+                            text: AppStrings.text(lang, 'continueWith'),
+                            style: const TextStyle(color: Colors.black),
                           ),
                           TextSpan(
-                            text: 'Google',
-                            style: TextStyle(color: Color(0xFF2D8CE0)),
+                            text: AppStrings.text(lang, 'google'),
+                            style: const TextStyle(color: Color(0xFF2D8CE0)),
                           ),
                         ],
                       ),
@@ -194,8 +197,8 @@ class _LoginScreenState extends State<LoginScreen> {
                         borderRadius: BorderRadius.circular(18),
                       ),
                     ),
-                    child: const Text(
-                      'Continue with Apple',
+                    child: Text(
+                      AppStrings.text(lang, 'continueWithApple'),
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
@@ -207,8 +210,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 18),
 
                 // Small divider text before the form.
-                const Text(
-                  'or',
+                Text(
+                  AppStrings.text(lang, 'or'),
                   style: TextStyle(fontSize: 16, color: Colors.grey),
                 ),
 
@@ -219,7 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: emailController,
                   keyboardType: TextInputType.emailAddress,
                   decoration: InputDecoration(
-                    hintText: 'Please enter your email',
+                    hintText: AppStrings.text(lang, 'enterEmail'),
                     hintStyle: const TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -244,7 +247,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   controller: passwordController,
                   obscureText: true,
                   decoration: InputDecoration(
-                    hintText: 'Please enter your password',
+                    hintText: AppStrings.text(lang, 'enterPassword'),
                     hintStyle: const TextStyle(
                       color: Colors.black87,
                       fontSize: 15,
@@ -289,8 +292,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                             ),
                           )
-                        : const Text(
-                            'Log In',
+                        : Text(
+                            AppStrings.text(lang, 'logIn'),
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,
@@ -305,8 +308,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    const Text(
-                      'Don\'t have an account? ',
+                    Text(
+                      AppStrings.text(lang, 'noAccount'),
                       style: TextStyle(fontSize: 15, color: Color(0xFF2D8CE0)),
                     ),
                     GestureDetector(
@@ -318,8 +321,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         );
                       },
-                      child: const Text(
-                        'Sign Up',
+                      child: Text(
+                        AppStrings.text(lang, 'signUp'),
                         style: TextStyle(
                           fontSize: 15,
                           color: Color(0xFF2D8CE0),

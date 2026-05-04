@@ -7,6 +7,7 @@ import '../services/firestore_service.dart';
 import '../services/local_lesson_content_service.dart';
 import 'lesson_header_tabs.dart';
 import 'quiz_result_screen.dart';
+import '../localization/app_strings.dart';
 
 class QuizScreen extends StatefulWidget {
   final Lesson lesson;
@@ -16,6 +17,8 @@ class QuizScreen extends StatefulWidget {
   @override
   State<QuizScreen> createState() => _QuizScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _QuizScreenState extends State<QuizScreen> {
   final FirestoreService firestoreService = FirestoreService();
@@ -65,6 +68,7 @@ class _QuizScreenState extends State<QuizScreen> {
       title: localQuiz['title'] as String? ?? '',
       passingScore: (localQuiz['passingScore'] as int?) ?? 0,
       totalQuestions: (localQuiz['totalQuestions'] as int?) ?? 0,
+      titleHa: localQuiz['titleHa'] as String? ?? '',
     );
   }
 
@@ -115,6 +119,11 @@ class _QuizScreenState extends State<QuizScreen> {
             optionD: row['optionD'] as String? ?? '',
             correctAnswer: row['correctAnswer'] as String? ?? '',
             order: (row['order'] as int?) ?? 0,
+            questionTextHa: row['questionTextHa'] as String? ?? '',
+            optionAHa: row['optionAHa'] as String? ?? '',
+            optionBHa: row['optionBHa'] as String? ?? '',
+            optionCHa: row['optionCHa'] as String? ?? '',
+            optionDHa: row['optionDHa'] as String? ?? '',
           ),
         )
         .toList();
@@ -179,7 +188,7 @@ class _QuizScreenState extends State<QuizScreen> {
         ),
         titleSpacing: 0,
         title: Text(
-          'Lesson ${widget.lesson.lessonNumber}: ${widget.lesson.title}',
+          '${AppStrings.text(lang, 'lesson')} ${widget.lesson.lessonNumber}: ${widget.lesson.title}',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -189,7 +198,7 @@ class _QuizScreenState extends State<QuizScreen> {
       ),
       body: Column(
         children: [
-          const LessonHeaderTabs(activeTab: 'quiz'),
+          LessonHeaderTabs(activeTab: AppStrings.text(lang, 'activeTabQuiz')),
           Expanded(
             child: FutureBuilder<QuizModel?>(
               future: loadQuiz(),
@@ -201,7 +210,7 @@ class _QuizScreenState extends State<QuizScreen> {
                 if (quizSnapshot.hasError) {
                   return Center(
                     child: Text(
-                      'Error loading quiz: ${quizSnapshot.error}',
+                      '${AppStrings.text(lang, 'errorLoadingQuiz')}: ${quizSnapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   );
@@ -209,9 +218,9 @@ class _QuizScreenState extends State<QuizScreen> {
 
                 final quiz = quizSnapshot.data;
                 if (quiz == null) {
-                  return const Center(
+                  return Center(
                     child: Text(
-                      'No quiz found for this lesson.',
+                      AppStrings.text(lang, 'noQuizFoundForLesson'),
                       style: TextStyle(fontSize: 15, color: Colors.black54),
                     ),
                   );
@@ -228,7 +237,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     if (questionSnapshot.hasError) {
                       return Center(
                         child: Text(
-                          'Error loading questions: ${questionSnapshot.error}',
+                          '${AppStrings.text(lang, 'errorLoadingQuestions')}: ${questionSnapshot.error}',
                           textAlign: TextAlign.center,
                         ),
                       );
@@ -237,9 +246,9 @@ class _QuizScreenState extends State<QuizScreen> {
                     final questions = questionSnapshot.data ?? [];
 
                     if (questions.isEmpty) {
-                      return const Center(
+                      return Center(
                         child: Text(
-                          'No questions found for this quiz.',
+                          AppStrings.text(lang, 'noQuestionsFoundForQuiz'),
                           style: TextStyle(fontSize: 15, color: Colors.black54),
                         ),
                       );
@@ -267,7 +276,7 @@ class _QuizScreenState extends State<QuizScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'Question ${currentQuestionIndex + 1} of ${questions.length}',
+                            '${AppStrings.text(lang, 'question')} ${currentQuestionIndex + 1} ${AppStrings.text(lang, 'of')} ${questions.length}',
                             style: const TextStyle(
                               fontSize: 15,
                               fontWeight: FontWeight.w700,
@@ -400,8 +409,8 @@ class _QuizScreenState extends State<QuizScreen> {
                                       foregroundColor: const Color(0xFF2D8CE0),
                                       backgroundColor: Colors.white,
                                     ),
-                                    child: const Text(
-                                      'Previous question',
+                                    child: Text(
+                                      AppStrings.text(lang, 'previousQuestion'),
                                       style: TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,
@@ -439,8 +448,11 @@ class _QuizScreenState extends State<QuizScreen> {
                                     ),
                                     child: Text(
                                       isLastQuestion
-                                          ? 'Submit'
-                                          : 'Next question',
+                                          ? AppStrings.text(lang, 'submit')
+                                          : AppStrings.text(
+                                              lang,
+                                              'nextQuestion',
+                                            ),
                                       style: const TextStyle(
                                         fontSize: 16,
                                         fontWeight: FontWeight.w700,

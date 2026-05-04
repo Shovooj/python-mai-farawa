@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import '../main.dart';
+import '../localization/app_strings.dart';
 
 // SplashScreen is the first screen shown when the app starts.
 // It waits briefly, then opens the login screen.
@@ -10,6 +11,8 @@ class SplashScreen extends StatefulWidget {
   @override
   State<SplashScreen> createState() => _SplashScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _SplashScreenState extends State<SplashScreen> {
   @override
@@ -77,8 +80,8 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                       ),
                       const SizedBox(height: 26),
-                      const Text(
-                        'Python Mai Farawa',
+                      Text(
+                        AppStrings.text(lang, 'appTitle'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 30,
@@ -87,8 +90,8 @@ class _SplashScreenState extends State<SplashScreen> {
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        'Learn basic Python in Hausa language',
+                      Text(
+                        AppStrings.text(lang, 'appTagline'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 16,

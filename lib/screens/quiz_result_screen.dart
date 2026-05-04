@@ -11,6 +11,9 @@ import '../services/sync_queue_service.dart';
 import 'lesson_header_tabs.dart';
 import 'practice_screen.dart';
 import 'quiz_screen.dart';
+import '../localization/app_strings.dart';
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class QuizResultScreen extends StatelessWidget {
   final Lesson lesson;
@@ -33,7 +36,8 @@ class QuizResultScreen extends StatelessWidget {
 
   Future<String> getUid() async {
     final user = FirebaseAuth.instance.currentUser;
-    if (user == null) throw Exception('No signed-in user found.');
+    if (user == null)
+      throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
     return user.uid;
   }
 
@@ -127,7 +131,7 @@ class QuizResultScreen extends StatelessWidget {
         title: Padding(
           padding: const EdgeInsets.only(left: 12),
           child: Text(
-            'Lesson ${lesson.lessonNumber}: ${lesson.title}',
+            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -138,7 +142,7 @@ class QuizResultScreen extends StatelessWidget {
       ),
       body: Column(
         children: [
-          const LessonHeaderTabs(activeTab: 'quiz'),
+          LessonHeaderTabs(activeTab: AppStrings.text(lang, 'activeTabQuiz')),
           Expanded(
             child: Center(
               child: Padding(
@@ -162,7 +166,9 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        hasPassed ? 'You passed!' : 'You did not pass',
+                        hasPassed
+                            ? AppStrings.text(lang, 'youPassed')
+                            : AppStrings.text(lang, 'youDidNotPass'),
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           fontSize: 22,
@@ -172,7 +178,7 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'Lesson ${lesson.lessonNumber}: ${lesson.title}',
+                        '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 20,
@@ -182,7 +188,7 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        'You scored $score out of $totalQuestions',
+                        '${AppStrings.text(lang, 'youScored')} $score ${AppStrings.text(lang, 'outOf')} $totalQuestions',
                         style: const TextStyle(
                           fontSize: 16,
                           color: Colors.black87,
@@ -199,7 +205,7 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Pass mark: $passMark%',
+                        '${AppStrings.text(lang, 'passMark')}: $passMark',
                         style: const TextStyle(
                           fontSize: 15,
                           color: Colors.black54,
@@ -298,7 +304,9 @@ class QuizResultScreen extends StatelessWidget {
                             ),
                           ),
                           child: Text(
-                            hasPassed ? 'Move to Practice' : 'Try Again',
+                            hasPassed
+                                ? AppStrings.text(lang, 'moveToPractice')
+                                : AppStrings.text(lang, 'tryAgain'),
                             style: const TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w700,

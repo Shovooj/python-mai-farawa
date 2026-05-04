@@ -2,7 +2,9 @@ class Lesson {
   final String lessonId;
   final int lessonNumber;
   final String title;
+  final String titleHa;
   final String description;
+  final String descriptionHa;
   final String contentBody;
   final int durationMinutes;
   final String language;
@@ -13,7 +15,9 @@ class Lesson {
     required this.lessonId,
     required this.lessonNumber,
     required this.title,
+    required this.titleHa,
     required this.description,
+    required this.descriptionHa,
     required this.contentBody,
     required this.durationMinutes,
     required this.language,
@@ -26,7 +30,9 @@ class Lesson {
       lessonId: map['lessonId'] ?? '',
       lessonNumber: map['lessonNumber'] ?? 0,
       title: map['title'] ?? '',
+      titleHa: map['titleHa'] ?? '',
       description: map['description'] ?? '',
+      descriptionHa: map['descriptionHa'] ?? '',
       contentBody: map['contentBody'] ?? '',
       durationMinutes: map['durationMinutes'] ?? 0,
       language: map['language'] ?? '',
@@ -40,7 +46,9 @@ class Lesson {
       'lessonId': lessonId,
       'lessonNumber': lessonNumber,
       'title': title,
+      'titleHa': titleHa,
       'description': description,
+      'descriptionHa': descriptionHa,
       'contentBody': contentBody,
       'durationMinutes': durationMinutes,
       'language': language,

@@ -7,6 +7,7 @@ import 'lesson_detail_screen.dart';
 import 'lesson_list_screen.dart';
 import 'progress_screen.dart';
 import 'settings_screen.dart';
+import '../localization/app_strings.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -14,6 +15,8 @@ class HomeScreen extends StatefulWidget {
   @override
   State<HomeScreen> createState() => _HomeScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _HomeScreenState extends State<HomeScreen> {
   final FirestoreService _firestoreService = FirestoreService();
@@ -79,8 +82,8 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text(
-              'Python Mai Farawa',
+            Text(
+              AppStrings.text(lang, 'appTitle'),
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.w700,
@@ -102,7 +105,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'Error loading lessons: ${lessonSnapshot.error}',
+                  '${AppStrings.text(lang, 'errorLoadingLessons')}${lessonSnapshot.error}',
                   textAlign: TextAlign.center,
                 ),
               ),
@@ -116,10 +119,10 @@ class _HomeScreenState extends State<HomeScreen> {
                 ..sort((a, b) => a.lessonNumber.compareTo(b.lessonNumber));
 
           if (lessons.isEmpty) {
-            return const Center(
+            return Center(
               child: Text(
-                'No lessons available right now.',
-                style: TextStyle(fontSize: 15, color: Colors.black54),
+                AppStrings.text(lang, 'noLessonsAvailable'),
+                style: const TextStyle(fontSize: 15, color: Colors.black54),
               ),
             );
           }
@@ -136,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   child: Padding(
                     padding: const EdgeInsets.all(24),
                     child: Text(
-                      'Error loading progress: ${progressSnapshot.error}',
+                      '${AppStrings.text(lang, 'errorLoadingProgress')}${progressSnapshot.error}',
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -145,36 +148,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
               final progressList = progressSnapshot.data ?? [];
 
-              //debug
-              debugPrint('----- HOME DEBUG START -----');
-              debugPrint('Lessons count: ${lessons.length}');
-              for (final lesson in lessons) {
-                debugPrint(
-                  'Lesson -> title: ${lesson.title}, lessonNumber: ${lesson.lessonNumber}, lessonId: ${lesson.lessonId}',
-                );
-              }
-
-              debugPrint('Progress count: ${progressList.length}');
-              for (final progress in progressList) {
-                debugPrint(
-                  'Progress -> lessonId: ${progress.lessonId}, completed: ${progress.lessonCompleted}, quizCompleted: ${progress.quizCompleted}, practiceCompleted: ${progress.practiceCompleted}, videoViewed: ${progress.videoViewed}',
-                );
-              }
-              debugPrint('----- HOME DEBUG END -----');
-
               final Map<String, ProgressModel> progressMap = {
                 for (final progress in progressList)
                   progress.lessonId: progress,
               };
-
-              debugPrint(
-                'Progress map keys final: ${progressMap.keys.toList()}',
-              );
-              for (final lesson in lessons) {
-                debugPrint(
-                  'Match check -> lesson.lessonId: ${lesson.lessonId}, foundInProgressMap: ${progressMap.containsKey(lesson.lessonId)}',
-                );
-              }
 
               bool isLessonUnlocked(Lesson lesson, int index) {
                 if (index == 0) return true;
@@ -220,8 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Text(
-                                'Hello, Learner!',
+                              Text(
+                                AppStrings.text(lang, 'helloLearner'),
                                 style: TextStyle(
                                   fontSize: 26,
                                   fontWeight: FontWeight.w800,
@@ -229,8 +206,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              const Text(
-                                'Track your learning',
+                              Text(
+                                AppStrings.text(lang, 'trackYourLearning'),
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.black54,
@@ -253,7 +230,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${(overallProgress * 100).toStringAsFixed(0)}% completed ($completedLessons/${lessons.length})',
+                                    '${(overallProgress * 100).toStringAsFixed(0)}% ${AppStrings.text(lang, 'completedSuffix')} ($completedLessons/${lessons.length})',
                                     style: const TextStyle(
                                       fontSize: 13,
                                       color: Colors.black54,
@@ -283,8 +260,11 @@ class _HomeScreenState extends State<HomeScreen> {
                                         crossAxisAlignment:
                                             CrossAxisAlignment.start,
                                         children: [
-                                          const Text(
-                                            'Continue Learning',
+                                          Text(
+                                            AppStrings.text(
+                                              lang,
+                                              'continueLearning',
+                                            ),
                                             style: TextStyle(
                                               fontSize: 16,
                                               fontWeight: FontWeight.w700,
@@ -292,7 +272,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                           ),
                                           const SizedBox(height: 6),
                                           Text(
-                                            'Lesson ${lessonToContinue.lessonNumber}: ${lessonToContinue.title}',
+                                            '${AppStrings.text(lang, 'lesson')} ${lessonToContinue.lessonNumber}: ${lessonToContinue.title}',
                                             style: const TextStyle(
                                               fontSize: 14,
                                               color: Colors.black54,
@@ -322,8 +302,8 @@ class _HomeScreenState extends State<HomeScreen> {
                                 ),
                               ),
                               const SizedBox(height: 24),
-                              const Text(
-                                'Lessons',
+                              Text(
+                                AppStrings.text(lang, 'lessons'),
                                 style: TextStyle(
                                   fontSize: 20,
                                   fontWeight: FontWeight.w800,
@@ -389,7 +369,7 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                                 const SizedBox(height: 4),
                                                 Text(
-                                                  'Lesson ${lesson.lessonNumber}',
+                                                  '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}',
                                                   style: const TextStyle(
                                                     fontSize: 13,
                                                     color: Colors.black54,
@@ -441,22 +421,22 @@ class _HomeScreenState extends State<HomeScreen> {
                       selectedItemColor: const Color(0xFF2D8CE0),
                       unselectedItemColor: Colors.grey,
                       showUnselectedLabels: true,
-                      items: const [
+                      items: [
                         BottomNavigationBarItem(
                           icon: Icon(Icons.home_rounded),
-                          label: 'Home',
+                          label: AppStrings.text(lang, 'home'),
                         ),
                         BottomNavigationBarItem(
                           icon: Icon(Icons.menu_book_rounded),
-                          label: 'Lessons',
+                          label: AppStrings.text(lang, 'lessons'),
                         ),
                         BottomNavigationBarItem(
                           icon: Icon(Icons.bar_chart_rounded),
-                          label: 'Progress',
+                          label: AppStrings.text(lang, 'progress'),
                         ),
                         BottomNavigationBarItem(
                           icon: Icon(Icons.settings_rounded),
-                          label: 'Settings',
+                          label: AppStrings.text(lang, 'settings'),
                         ),
                       ],
                       onTap: (index) {

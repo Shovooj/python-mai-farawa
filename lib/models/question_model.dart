@@ -2,6 +2,11 @@ class QuestionModel {
   final String questionId;
   final String quizId;
   final String lessonId;
+  final String questionTextHa;
+  final String optionAHa;
+  final String optionBHa;
+  final String optionCHa;
+  final String optionDHa;
   final String questionText;
   final String optionA;
   final String optionB;
@@ -15,10 +20,15 @@ class QuestionModel {
     required this.quizId,
     required this.lessonId,
     required this.questionText,
+    required this.questionTextHa,
     required this.optionA,
+    required this.optionAHa,
     required this.optionB,
+    required this.optionBHa,
     required this.optionC,
+    required this.optionCHa,
     required this.optionD,
+    required this.optionDHa,
     required this.correctAnswer,
     required this.order,
   });
@@ -29,10 +39,15 @@ class QuestionModel {
       quizId: map['quizId'] ?? '',
       lessonId: map['lessonId'] ?? '',
       questionText: map['questionText'] ?? '',
+      questionTextHa: map['questionTextHa'] ?? '',
       optionA: map['optionA'] ?? '',
+      optionAHa: map['optionAHa'] ?? '',
       optionB: map['optionB'] ?? '',
+      optionBHa: map['optionBHa'] ?? '',
       optionC: map['optionC'] ?? '',
+      optionCHa: map['optionCHa'] ?? '',
       optionD: map['optionD'] ?? '',
+      optionDHa: map['optionDHa'] ?? '',
       correctAnswer: map['correctAnswer'] ?? '',
       order: map['order'] ?? 0,
     );
@@ -44,10 +59,15 @@ class QuestionModel {
       'quizId': quizId,
       'lessonId': lessonId,
       'questionText': questionText,
+      'questionTextHa': questionTextHa,
       'optionA': optionA,
+      'optionAHa': optionAHa,
       'optionB': optionB,
+      'optionBHa': optionBHa,
       'optionC': optionC,
+      'optionCHa': optionCHa,
       'optionD': optionD,
+      'optionDHa': optionDHa,
       'correctAnswer': correctAnswer,
       'order': order,
     };

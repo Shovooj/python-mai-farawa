@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/lesson_model.dart';
 import '../services/offline_lesson_service.dart';
 import 'lesson_detail_screen.dart';
+import '../localization/app_strings.dart';
 
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
@@ -9,6 +10,8 @@ class LessonListScreen extends StatefulWidget {
   @override
   State<LessonListScreen> createState() => _LessonListScreenState();
 }
+
+final lang = 'en'; // temporary for now, until settings is connected
 
 class _LessonListScreenState extends State<LessonListScreen> {
   final OfflineLessonService _offlineLessonService = OfflineLessonService();
@@ -49,8 +52,8 @@ class _LessonListScreenState extends State<LessonListScreen> {
           icon: const Icon(Icons.arrow_back_rounded, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Lessons',
+        title: Text(
+          AppStrings.text(lang, 'lessons'),
           style: TextStyle(
             color: Colors.white,
             fontSize: 18,
@@ -75,8 +78,8 @@ class _LessonListScreenState extends State<LessonListScreen> {
                     searchQuery = value;
                   });
                 },
-                decoration: const InputDecoration(
-                  hintText: 'Find a lesson',
+                decoration: InputDecoration(
+                  hintText: AppStrings.text(lang, 'findALesson'),
                   hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
                   border: InputBorder.none,
                   icon: Icon(Icons.search_rounded, color: Colors.grey),
@@ -84,8 +87,8 @@ class _LessonListScreenState extends State<LessonListScreen> {
               ),
             ),
             const SizedBox(height: 20),
-            const Text(
-              'All lessons',
+            Text(
+              AppStrings.text(lang, 'allLessons'),
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
             ),
             const SizedBox(height: 16),
@@ -100,7 +103,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
                   if (snapshot.hasError) {
                     return Center(
                       child: Text(
-                        'Error loading lessons: ${snapshot.error}',
+                        '${AppStrings.text(lang, 'errorLoadingLessons')} ${snapshot.error}',
                         textAlign: TextAlign.center,
                       ),
                     );
@@ -110,9 +113,9 @@ class _LessonListScreenState extends State<LessonListScreen> {
                   final lessons = _filterLessons(allLessons);
 
                   if (lessons.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        'No lessons found.',
+                        AppStrings.text(lang, 'noLessonsFound'),
                         style: TextStyle(fontSize: 15, color: Colors.black54),
                       ),
                     );
