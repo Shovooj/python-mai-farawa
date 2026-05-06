@@ -84,10 +84,12 @@ class ProgressScreen extends StatelessWidget {
 
               final int progressPercent = (progressFraction * 100).round();
 
-              final int completedMinutes = progressList.fold(
+              final int completedSeconds = progressList.fold(
                 0,
-                (sum, item) => sum + (item.videoPositionSeconds ~/ 60),
+                (sum, item) => sum + item.videoPositionSeconds,
               );
+
+              final int completedMinutes = completedSeconds ~/ 60;
 
               final int totalMinutes = lessons.fold(
                 0,

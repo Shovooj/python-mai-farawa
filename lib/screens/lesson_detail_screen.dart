@@ -39,7 +39,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   final FirestoreService firestoreService = FirestoreService();
   final LocalVideoService _localVideoService = LocalVideoService();
 
-  bool _isDownloadingVideo = false;
   bool _isVideoAvailableOffline = false;
 
   int _lastSavedSecond = 0;
@@ -51,12 +50,10 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     _initializeVideo();
   }
 
-  Future<String> _getUid() async {
-    final lang = context.watch<LanguageProvider>().languageCode;
-
+  String getUid() {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
-      throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
+      throw Exception('No signed-in user found.');
     }
     return user.uid;
   }
@@ -121,77 +118,72 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  Future<void> _saveInitialLocalProgress() async {
-    final uid = await _getUid();
+  Future<void> saveInitialLocalProgress() async {
+    final uid = getUid();
 
     final existing = await _getExistingLocalProgress(uid);
 
-    await _localProgressService.upsertLocalProgress(
+    await _localProgressService.saveLessonProgress(
       progressId: '${uid}_${widget.lesson.lessonId}',
       userId: uid,
       lessonId: widget.lesson.lessonId,
-      lessonCompleted: existing?.lessonCompleted ?? false,
-      practiceCompleted: existing?.practiceCompleted ?? false,
-      quizCompleted: existing?.quizCompleted ?? false,
       videoViewed: existing?.videoViewed ?? false,
       score: existing?.score ?? 0,
       videoPositionSeconds: existing?.videoPositionSeconds ?? 0,
       videoDurationSeconds: existing?.videoDurationSeconds ?? 0,
     );
+
+    await _progressService.refreshLocalProgressStream();
   }
 
   Future<ProgressModel?> _getExistingLocalProgress(String uid) async {
+    return _localProgressService.getLocalProgressForLesson(
+      userId: uid,
+      lessonId: widget.lesson.lessonId,
+    );
+  }
+
+  Future<void> debugPrintLocalLessonProgress() async {
+    final uid = getUid();
     final rows = await _localProgressService.getUserLocalProgress(uid);
 
     try {
-      return rows.firstWhere((item) => item.lessonId == widget.lesson.lessonId);
+      final progress = rows.firstWhere(
+        (item) => item.lessonId == widget.lesson.lessonId,
+      );
+
+      debugPrint('LOCAL PROGRESS FOR ${widget.lesson.lessonId}');
+      debugPrint('videoViewed: ${progress.videoViewed}');
+      debugPrint('practiceCompleted: ${progress.practiceCompleted}');
+      debugPrint('quizCompleted: ${progress.quizCompleted}');
+      debugPrint('lessonCompleted: ${progress.lessonCompleted}');
+      debugPrint('score: ${progress.score}');
+      debugPrint('videoPositionSeconds: ${progress.videoPositionSeconds}');
+      debugPrint('videoDurationSeconds: ${progress.videoDurationSeconds}');
     } catch (_) {
-      return null;
+      debugPrint('No local progress row found for ${widget.lesson.lessonId}');
     }
   }
 
-  Future<void> _saveVideoProgress() async {
+  Future<void> saveVideoProgress({bool forceComplete = false}) async {
     if (_isSavingVideoProgress) return;
-
-    if (_videoController == null || !_videoController!.value.isInitialized) {
+    if (_videoController == null || !_videoController!.value.isInitialized)
       return;
-    }
 
     _isSavingVideoProgress = true;
 
     try {
-      final uid = await _getUid();
-
       final positionSeconds = _videoController!.value.position.inSeconds;
       final durationSeconds = _videoController!.value.duration.inSeconds;
 
       bool viewed = false;
       if (durationSeconds > 0) {
-        final watchedFraction = positionSeconds / durationSeconds;
-        viewed = watchedFraction >= 0.9;
+        viewed = (positionSeconds / durationSeconds) >= 0.8;
       }
+      if (forceComplete && durationSeconds > 0) viewed = true;
 
-      final existing = await _getExistingLocalProgress(uid);
-
-      final quizCompleted = existing?.quizCompleted ?? false;
-      final practiceCompleted = existing?.practiceCompleted ?? false;
-      final score = existing?.score ?? 0;
-
-      final lessonCompleted = quizCompleted && practiceCompleted && viewed;
-
-      await _localProgressService.upsertLocalProgress(
-        progressId: '${uid}_${widget.lesson.lessonId}',
-        userId: uid,
-        lessonId: widget.lesson.lessonId,
-        lessonCompleted: lessonCompleted,
-        practiceCompleted: practiceCompleted,
-        quizCompleted: quizCompleted,
-        videoViewed: viewed,
-        score: score,
-        videoPositionSeconds: positionSeconds,
-        videoDurationSeconds: durationSeconds,
-      );
-
+      // ONE write path only — ProgressService calls LocalProgressService
+      // which OR-merges and refreshes the stream. No direct local write here.
       await _progressService.saveVideoProgress(
         lessonId: widget.lesson.lessonId,
         positionSeconds: positionSeconds,
@@ -199,19 +191,29 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         videoViewed: viewed,
       );
 
-      await _progressService.updateLessonCompleted(
+      // Read back for logging only
+      final uid = getUid();
+      final saved = await _localProgressService.getLocalProgressForLesson(
+        userId: uid,
         lessonId: widget.lesson.lessonId,
       );
-
-      try {
-        await _progressSyncService.syncPendingProgress();
-      } catch (_) {}
+      debugPrint(
+        'VIDEO LOCAL SAVE -> '
+        'lessonId=${widget.lesson.lessonId}, '
+        'quizCompleted=${saved?.quizCompleted}, '
+        'practiceCompleted=${saved?.practiceCompleted}, '
+        'videoViewed=${saved?.videoViewed}, '
+        'lessonCompleted=${saved?.lessonCompleted}, '
+        'score=${saved?.score}',
+      );
+    } catch (e) {
+      debugPrint('saveVideoProgress failed: $e');
     } finally {
       _isSavingVideoProgress = false;
     }
   }
 
-  void _videoListener() {
+  void videoListener() {
     if (_videoController == null || !_videoController!.value.isInitialized) {
       return;
     }
@@ -219,16 +221,20 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     final currentSecond = _videoController!.value.position.inSeconds;
     final durationSeconds = _videoController!.value.duration.inSeconds;
 
-    if (durationSeconds > 0 && currentSecond >= durationSeconds) {
-      _saveVideoProgress();
-      return;
+    if (durationSeconds > 0) {
+      final watchedFraction = currentSecond / durationSeconds;
+
+      if (watchedFraction >= 0.8) {
+        saveVideoProgress(forceComplete: true);
+        return;
+      }
     }
 
     if (currentSecond > 0 &&
         currentSecond % 5 == 0 &&
         currentSecond != _lastSavedSecond) {
       _lastSavedSecond = currentSecond;
-      _saveVideoProgress();
+      saveVideoProgress();
     }
   }
 
@@ -257,7 +263,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       }
 
       await _videoController!.initialize();
-      _videoController!.addListener(_videoListener);
+      _videoController!.addListener(videoListener);
 
       setState(() {
         _isVideoReady = true;
@@ -270,95 +276,53 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  Future<void> _downloadVideoForOffline() async {
-    final videoUrl = widget.lesson.videoUrl.trim();
-
-    if (videoUrl.isEmpty) return;
-
-    setState(() {
-      _isDownloadingVideo = true;
-    });
-
-    try {
-      final file = await _localVideoService.downloadVideo(
-        lessonId: widget.lesson.lessonId,
-        videoUrl: videoUrl,
-      );
-
-      _isVideoAvailableOffline = true;
-
-      await _videoController?.dispose();
-
-      _videoController = null;
-
-      if (mounted) {
-        setState(() {
-          _isVideoReady = false;
-          _hasVideoError = false;
-        });
-      }
-
-      _videoController = VideoPlayerController.file(File(file.path));
-      await _videoController!.initialize();
-      _videoController!.addListener(_videoListener);
-
-      if (!mounted) return;
-
-      setState(() {
-        _isVideoReady = true;
-        _hasVideoError = false;
-      });
-
-      final lang = context.watch<LanguageProvider>().languageCode;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppStrings.text(lang, 'videoDownloadedForOfflineUse')),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      final lang = context.watch<LanguageProvider>().languageCode;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${AppStrings.text(lang, 'videoDownloadFailed')}$e'),
-        ),
-      );
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isDownloadingVideo = false;
-        });
-      }
-    }
-  }
-
   Future<void> _openQuiz() async {
-    await cacheLessonContentForOffline();
-    if (!mounted) return;
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => QuizScreen(lesson: widget.lesson),
-      ),
-    );
-
     try {
-      await _saveInitialLocalProgress();
-    } catch (e) {
-      debugPrint('Local progress save failed: $e');
-    }
+      final isDownloaded = await localLessonContentService
+          .isLessonPackageDownloaded(widget.lesson.lessonId);
 
-    try {
-      await _progressSyncService.syncPendingProgress();
-    } catch (e) {
-      debugPrint('Progress sync failed: $e');
-    }
+      if (!isDownloaded) {
+        await cacheLessonContentForOffline();
+      }
 
-    if (mounted) {
-      setState(() {});
+      if (!mounted) return;
+
+      // Stop the listener NOW before any navigation happens
+      _videoController?.removeListener(videoListener);
+      _videoController?.pause();
+
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => QuizScreen(lesson: widget.lesson),
+        ),
+      );
+
+      // Re-attach only after returning
+      _videoController?.addListener(videoListener);
+
+      try {
+        await _progressService.refreshLocalProgressStream();
+      } catch (e) {
+        debugPrint('Progress stream refresh failed: $e');
+      }
+
+      try {
+        await _progressSyncService.syncPendingProgress();
+      } catch (e) {
+        debugPrint('Progress sync failed: $e');
+      }
+
+      if (mounted) setState(() {});
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Lesson content is not available yet. Please connect to the internet or download this lesson from the lesson list.',
+          ),
+        ),
+      );
     }
   }
 
@@ -376,8 +340,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   @override
   void dispose() {
-    _saveVideoProgress();
-    _videoController?.removeListener(_videoListener);
+    // Remove the listener first so no more saves fire during teardown.
+    _videoController?.removeListener(videoListener);
     _videoController?.dispose();
     super.dispose();
   }
@@ -533,50 +497,6 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SizedBox(
-                      width: double.infinity,
-                      height: 54,
-                      child: OutlinedButton(
-                        onPressed: _isDownloadingVideo
-                            ? null
-                            : _downloadVideoForOffline,
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF2D8CE0),
-                          side: const BorderSide(
-                            color: Color(0xFF2D8CE0),
-                            width: 2,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          backgroundColor: Colors.white,
-                        ),
-                        child: _isDownloadingVideo
-                            ? const SizedBox(
-                                width: 22,
-                                height: 22,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2.5,
-                                ),
-                              )
-                            : Text(
-                                _isVideoAvailableOffline
-                                    ? AppStrings.text(
-                                        lang,
-                                        'videoDownloadedOfflineLabel',
-                                      )
-                                    : AppStrings.text(
-                                        lang,
-                                        'downloadVideoOfflineLabel',
-                                      ),
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
                       ),
                     ),
                   ],

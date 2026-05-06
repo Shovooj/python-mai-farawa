@@ -23,18 +23,46 @@ class ProgressModel {
     required this.videoDurationSeconds,
   });
 
+  static bool toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is int) return value == 1;
+    if (value is String) return value == '1' || value.toLowerCase() == 'true';
+    return false;
+  }
+
+  static int toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value) ?? 0;
+    return 0;
+  }
+
   factory ProgressModel.fromMap(Map<String, dynamic> map) {
+    bool toBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is int) return value == 1;
+      if (value is String) return value == '1' || value.toLowerCase() == 'true';
+      return false;
+    }
+
+    int toInt(dynamic value) {
+      if (value is int) return value;
+      if (value is num) return value.toInt();
+      if (value is String) return int.tryParse(value) ?? 0;
+      return 0;
+    }
+
     return ProgressModel(
-      progressId: map['progressId'] ?? '',
-      userId: map['userId'] ?? '',
-      lessonId: map['lessonId'] ?? '',
-      lessonCompleted: map['lessonCompleted'] == true,
-      practiceCompleted: map['practiceCompleted'] == true,
-      quizCompleted: map['quizCompleted'] == true,
-      videoViewed: map['videoViewed'] == true,
-      score: (map['score'] ?? 0) as int,
-      videoPositionSeconds: (map['videoPositionSeconds'] ?? 0) as int,
-      videoDurationSeconds: (map['videoDurationSeconds'] ?? 0) as int,
+      progressId: map['progressId']?.toString() ?? '',
+      userId: map['userId']?.toString() ?? '',
+      lessonId: map['lessonId']?.toString() ?? '',
+      lessonCompleted: toBool(map['lessonCompleted']),
+      practiceCompleted: toBool(map['practiceCompleted']),
+      quizCompleted: toBool(map['quizCompleted']),
+      videoViewed: toBool(map['videoViewed']),
+      score: toInt(map['score']),
+      videoPositionSeconds: toInt(map['videoPositionSeconds']),
+      videoDurationSeconds: toInt(map['videoDurationSeconds']),
     );
   }
 
@@ -69,10 +97,10 @@ class ProgressModel {
       'progressId': progressId,
       'userId': userId,
       'lessonId': lessonId,
-      'lessonCompleted': lessonCompleted,
-      'practiceCompleted': practiceCompleted,
-      'quizCompleted': quizCompleted,
-      'videoViewed': videoViewed,
+      'lessonCompleted': lessonCompleted ? 1 : 0,
+      'practiceCompleted': practiceCompleted ? 1 : 0,
+      'quizCompleted': quizCompleted ? 1 : 0,
+      'videoViewed': videoViewed ? 1 : 0,
       'score': score,
       'videoPositionSeconds': videoPositionSeconds,
       'videoDurationSeconds': videoDurationSeconds,

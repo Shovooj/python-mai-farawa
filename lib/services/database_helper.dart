@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 6,
+      version: 9,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -72,6 +72,44 @@ class DatabaseHelper {
       await db.execute('''
     ALTER TABLE practices ADD COLUMN practiceOrder INTEGER NOT NULL DEFAULT 0
   ''');
+    }
+
+    if (oldVersion < 7) {
+      await db.execute('''
+    CREATE TABLE IF NOT EXISTS downloaded_lessons(
+      lessonId TEXT PRIMARY KEY,
+      isDownloaded INTEGER NOT NULL DEFAULT 0,
+      videoDownloaded INTEGER NOT NULL DEFAULT 0,
+      downloadedAt TEXT,
+      updatedAt TEXT
+    )
+  ''');
+    }
+
+    if (oldVersion < 8) {
+      await db.execute('ALTER TABLE questions ADD COLUMN questionTextHa TEXT');
+      await db.execute('ALTER TABLE questions ADD COLUMN optionAHa TEXT');
+      await db.execute('ALTER TABLE questions ADD COLUMN optionBHa TEXT');
+      await db.execute('ALTER TABLE questions ADD COLUMN optionCHa TEXT');
+      await db.execute('ALTER TABLE questions ADD COLUMN optionDHa TEXT');
+    }
+
+    if (oldVersion < 9) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS local_progress(
+          progressId TEXT PRIMARY KEY,
+          userId TEXT NOT NULL,
+          lessonId TEXT NOT NULL,
+          lessonCompleted INTEGER NOT NULL DEFAULT 0,
+          practiceCompleted INTEGER NOT NULL DEFAULT 0,
+          quizCompleted INTEGER NOT NULL DEFAULT 0,
+          videoViewed INTEGER NOT NULL DEFAULT 0,
+          score INTEGER NOT NULL DEFAULT 0,
+          videoPositionSeconds INTEGER NOT NULL DEFAULT 0,
+          videoDurationSeconds INTEGER NOT NULL DEFAULT 0,
+          updatedAt TEXT
+        )
+      ''');
     }
   }
 
@@ -150,10 +188,15 @@ class DatabaseHelper {
         quizId TEXT NOT NULL,
         lessonId TEXT NOT NULL,
         questionText TEXT NOT NULL,
+        questionTextHa TEXT,
         optionA TEXT NOT NULL,
+        optionAHa TEXT,
         optionB TEXT NOT NULL,
+        optionBHa TEXT,
         optionC TEXT NOT NULL,
+        optionCHa TEXT,
         optionD TEXT NOT NULL,
+        optionDHa TEXT,
         correctAnswer TEXT NOT NULL,
         "order" INTEGER NOT NULL
       )
@@ -168,6 +211,16 @@ class DatabaseHelper {
         starterCode TEXT NOT NULL,
         expectedOutput TEXT NOT NULL,
         practiceOrder INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+
+    await db.execute('''
+      CREATE TABLE downloaded_lessons (
+        lessonId TEXT PRIMARY KEY,
+        isDownloaded INTEGER NOT NULL DEFAULT 0,
+        videoDownloaded INTEGER NOT NULL DEFAULT 0,
+        downloadedAt TEXT,
+        updatedAt TEXT
       )
     ''');
   }

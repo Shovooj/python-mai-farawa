@@ -10,6 +10,9 @@ import 'quiz_result_screen.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/progress_model.dart';
+import '../services/local_progress_service.dart';
 
 class QuizScreen extends StatefulWidget {
   final Lesson lesson;
@@ -21,6 +24,8 @@ class QuizScreen extends StatefulWidget {
 }
 
 class _QuizScreenState extends State<QuizScreen> {
+  final LocalProgressService _localProgressService = LocalProgressService();
+
   Future<QuizModel?>? _quizFuture;
   Future<List<QuestionModel>>? _questionsFuture;
   String? _loadedQuizId;
@@ -104,6 +109,11 @@ class _QuizScreenState extends State<QuizScreen> {
                   'optionB': q.optionB,
                   'optionC': q.optionC,
                   'optionD': q.optionD,
+                  'questionTextHa': q.questionTextHa,
+                  'optionAHa': q.optionAHa,
+                  'optionBHa': q.optionBHa,
+                  'optionCHa': q.optionCHa,
+                  'optionDHa': q.optionDHa,
                   'correctAnswer': q.correctAnswer,
                   'order': q.order,
                 },
@@ -140,10 +150,28 @@ class _QuizScreenState extends State<QuizScreen> {
         .toList();
   }
 
-  void finishQuiz({
+  Future<String> getUid() async {
+    final lang = context.read<LanguageProvider>().languageCode;
+    final user = FirebaseAuth.instance.currentUser;
+
+    if (user == null) {
+      throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
+    }
+
+    return user.uid;
+  }
+
+  Future<ProgressModel?> getExistingLocalProgress(String uid) async {
+    return _localProgressService.getLocalProgressForLesson(
+      userId: uid,
+      lessonId: widget.lesson.lessonId,
+    );
+  }
+
+  Future<void> finishQuiz({
     required QuizModel quiz,
     required List<QuestionModel> questions,
-  }) {
+  }) async {
     int score = 0;
 
     for (int i = 0; i < questions.length; i++) {
@@ -155,6 +183,8 @@ class _QuizScreenState extends State<QuizScreen> {
         score++;
       }
     }
+
+    if (!mounted) return;
 
     Navigator.pushReplacement(
       context,
@@ -197,7 +227,7 @@ class _QuizScreenState extends State<QuizScreen> {
         automaticallyImplyLeading: false,
         titleSpacing: 12,
         title: Text(
-          '${AppStrings.text(lang, 'lesson')} ${widget.lesson.lessonNumber}: ${widget.lesson.title}',
+          '${AppStrings.text(lang, 'lesson')} ${widget.lesson.lessonNumber}: ${widget.lesson.titleForLang(lang)}',
           style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
@@ -273,6 +303,7 @@ class _QuizScreenState extends State<QuizScreen> {
                     }
 
                     final question = questions[currentQuestionIndex];
+
                     final selectedIndex = selectedAnswers[currentQuestionIndex];
                     final isLastQuestion =
                         currentQuestionIndex == questions.length - 1;
@@ -440,9 +471,9 @@ class _QuizScreenState extends State<QuizScreen> {
                                   child: ElevatedButton(
                                     onPressed: selectedIndex == null
                                         ? null
-                                        : () {
+                                        : () async {
                                             if (isLastQuestion) {
-                                              finishQuiz(
+                                              await finishQuiz(
                                                 quiz: quiz,
                                                 questions: questions,
                                               );

@@ -37,21 +37,23 @@ class QuizResultScreen extends StatelessWidget {
   Future<String> getUid(BuildContext context) async {
     final lang = context.read<LanguageProvider>().languageCode;
     final user = FirebaseAuth.instance.currentUser;
+
     if (user == null) {
       throw Exception(AppStrings.text(lang, 'noSignedInUserFound'));
     }
+
     return user.uid;
   }
 
   Future<void> saveQuizProgressOfflineFirst(BuildContext context) async {
     final uid = await getUid(context);
+
     final localProgressService = LocalProgressService();
     final progressSyncService = ProgressSyncService();
     final progressService = ProgressService();
     final syncQueueService = SyncQueueService();
 
-    final List<ProgressModel> rows = await localProgressService
-        .getUserLocalProgress(uid);
+    final rows = await localProgressService.getUserLocalProgress(uid);
 
     ProgressModel? existing;
     try {
@@ -60,43 +62,33 @@ class QuizResultScreen extends StatelessWidget {
       existing = null;
     }
 
-    final bool quizCompleted = true;
-    final bool practiceCompleted = existing?.practiceCompleted ?? false;
-    final bool videoViewed = existing?.videoViewed ?? false;
+    // Only update the quiz-specific fields locally and remotely. Do NOT
+    // compute or send lessonCompleted here — LocalProgressService is the
+    // single source of truth for merging and computing lessonCompleted.
+    const bool quizCompleted = true;
     final int bestScore = score > (existing?.score ?? 0)
         ? score
         : (existing?.score ?? 0);
-    final int videoPositionSeconds = existing?.videoPositionSeconds ?? 0;
-    final int videoDurationSeconds = existing?.videoDurationSeconds ?? 0;
-    final bool lessonCompleted =
-        quizCompleted && practiceCompleted && videoViewed;
 
+    final progressId = '${uid}_${lesson.lessonId}';
+
+    await localProgressService.saveLessonProgress(
+      progressId: progressId,
+      userId: uid,
+      lessonId: lesson.lessonId,
+      quizCompleted: quizCompleted,
+      score: bestScore,
+    );
+
+    await progressService.refreshLocalProgressStream();
     final payload = {
-      'progressId': '$uid${lesson.lessonId}',
+      'progressId': progressId,
       'userId': uid,
       'lessonId': lesson.lessonId,
-      'lessonCompleted': lessonCompleted ? 1 : 0,
-      'practiceCompleted': practiceCompleted ? 1 : 0,
       'quizCompleted': 1,
-      'videoViewed': videoViewed ? 1 : 0,
       'score': bestScore,
-      'videoPositionSeconds': videoPositionSeconds,
-      'videoDurationSeconds': videoDurationSeconds,
       'updatedAt': DateTime.now().toIso8601String(),
     };
-
-    await localProgressService.upsertLocalProgress(
-      progressId: payload['progressId'] as String,
-      userId: payload['userId'] as String,
-      lessonId: payload['lessonId'] as String,
-      lessonCompleted: lessonCompleted,
-      practiceCompleted: practiceCompleted,
-      quizCompleted: quizCompleted,
-      videoViewed: videoViewed,
-      score: bestScore,
-      videoPositionSeconds: videoPositionSeconds,
-      videoDurationSeconds: videoDurationSeconds,
-    );
 
     await syncQueueService.addToQueue(
       entityType: 'progress',
@@ -106,13 +98,27 @@ class QuizResultScreen extends StatelessWidget {
     );
 
     if (await hasInternet()) {
-      await progressService.saveQuizProgress(
-        lessonId: lesson.lessonId,
-        score: bestScore,
-      );
-      await progressService.updateLessonCompleted(lessonId: lesson.lessonId);
-      await progressSyncService.syncPendingProgress();
+      try {
+        await progressService.syncFullLocalProgressToRemote(lesson.lessonId);
+        await progressSyncService.syncPendingProgress();
+      } catch (e) {
+        debugPrint('Remote quiz progress sync failed: $e');
+      }
     }
+
+    final saved = await localProgressService.getLocalProgressForLesson(
+      userId: uid,
+      lessonId: lesson.lessonId,
+    );
+
+    debugPrint(
+      'QUIZ RESULT SAVED -> '
+      'quizCompleted=${saved?.quizCompleted}, '
+      'practiceCompleted=${saved?.practiceCompleted}, '
+      'videoViewed=${saved?.videoViewed}, '
+      'lessonCompleted=${saved?.lessonCompleted}, '
+      'score=${saved?.score}',
+    );
   }
 
   @override
@@ -220,82 +226,25 @@ class QuizResultScreen extends StatelessWidget {
                         height: 50,
                         child: ElevatedButton(
                           onPressed: () async {
-                            final progressService = ProgressService();
-                            final localProgressService = LocalProgressService();
-                            final progressSyncService = ProgressSyncService();
-                            final user = FirebaseAuth.instance.currentUser;
-
-                            if (user == null) return;
-
-                            final uid = user.uid;
-                            final existingRows = await localProgressService
-                                .getUserLocalProgress(uid);
-
-                            ProgressModel? existing;
                             try {
-                              existing = existingRows.firstWhere(
-                                (item) => item.lessonId == lesson.lessonId,
+                              await saveQuizProgressOfflineFirst(context);
+                            } catch (e, st) {
+                              debugPrint(
+                                'Failed to save quiz progress from result screen: $e',
                               );
-                            } catch (_) {
-                              existing = null;
+                              debugPrintStack(stackTrace: st);
                             }
-
-                            final bestScore = score > (existing?.score ?? 0)
-                                ? score
-                                : (existing?.score ?? 0);
-                            final quizCompleted = true;
-                            final practiceCompleted =
-                                existing?.practiceCompleted ?? false;
-                            final videoViewed = existing?.videoViewed ?? false;
-                            final lessonCompleted =
-                                quizCompleted &&
-                                practiceCompleted &&
-                                videoViewed;
-
-                            await localProgressService.upsertLocalProgress(
-                              progressId: '${uid}_${lesson.lessonId}',
-                              userId: uid,
-                              lessonId: lesson.lessonId,
-                              lessonCompleted: lessonCompleted,
-                              practiceCompleted: practiceCompleted,
-                              quizCompleted: quizCompleted,
-                              videoViewed: videoViewed,
-                              score: bestScore,
-                              videoPositionSeconds:
-                                  existing?.videoPositionSeconds ?? 0,
-                              videoDurationSeconds:
-                                  existing?.videoDurationSeconds ?? 0,
-                            );
-
-                            try {
-                              await progressService.saveQuizProgress(
-                                lessonId: lesson.lessonId,
-                                score: score,
-                              );
-                              await progressService.updateLessonCompleted(
-                                lessonId: lesson.lessonId,
-                              );
-                              await progressSyncService.syncPendingProgress();
-                            } catch (_) {}
 
                             if (!context.mounted) return;
 
-                            if (hasPassed) {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) =>
-                                      PracticeScreen(lesson: lesson),
-                                ),
-                              );
-                            } else {
-                              Navigator.pushReplacement(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => QuizScreen(lesson: lesson),
-                                ),
-                              );
-                            }
+                            Navigator.pushReplacement(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => hasPassed
+                                    ? PracticeScreen(lesson: lesson)
+                                    : QuizScreen(lesson: lesson),
+                              ),
+                            );
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: hasPassed

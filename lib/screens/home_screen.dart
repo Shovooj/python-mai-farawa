@@ -10,6 +10,7 @@ import 'settings_screen.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import '../services/local_lesson_content_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -19,6 +20,9 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  final LocalLessonContentService _localLessonContentService =
+      LocalLessonContentService();
+
   final FirestoreService _firestoreService = FirestoreService();
   final ProgressService _progressService = ProgressService();
 
@@ -29,6 +33,9 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => LessonDetailScreen(lesson: lesson),
       ),
     );
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _openLessonList() async {
@@ -36,6 +43,10 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => const LessonListScreen()),
     );
+
+    if (!mounted) return;
+
+    setState(() {});
   }
 
   Future<void> _openProgressScreen() async {
@@ -43,6 +54,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       MaterialPageRoute(builder: (context) => const ProgressScreen()),
     );
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   Future<void> _openSettingsScreen() async {
@@ -70,6 +84,9 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context) => LessonDetailScreen(lesson: lesson),
       ),
     );
+
+    if (!mounted) return;
+    setState(() {});
   }
 
   @override
@@ -406,15 +423,43 @@ class _HomeScreenState extends State<HomeScreen> {
                                             ),
                                             Align(
                                               alignment: Alignment.bottomRight,
-                                              child: Icon(
-                                                completed
-                                                    ? Icons.check_circle
-                                                    : unlocked
-                                                    ? Icons.lock_open
-                                                    : Icons.lock,
-                                                color: completed
-                                                    ? Colors.green
-                                                    : const Color(0xFF2D8CE0),
+                                              child: FutureBuilder<bool>(
+                                                future: _localLessonContentService
+                                                    .isLessonPackageDownloaded(
+                                                      lesson.lessonId,
+                                                    ),
+                                                builder: (context, snapshot) {
+                                                  final isDownloaded =
+                                                      snapshot.data ?? false;
+
+                                                  IconData iconData;
+                                                  Color iconColor;
+
+                                                  if (completed) {
+                                                    iconData =
+                                                        Icons.check_circle;
+                                                    iconColor = Colors.green;
+                                                  } else if (!unlocked) {
+                                                    iconData = Icons.lock;
+                                                    iconColor = const Color(
+                                                      0xFF2D8CE0,
+                                                    );
+                                                  } else if (isDownloaded) {
+                                                    iconData = Icons
+                                                        .download_done_rounded;
+                                                    iconColor = Colors.green;
+                                                  } else {
+                                                    iconData = Icons.lock_open;
+                                                    iconColor = const Color(
+                                                      0xFF2D8CE0,
+                                                    );
+                                                  }
+
+                                                  return Icon(
+                                                    iconData,
+                                                    color: iconColor,
+                                                  );
+                                                },
                                               ),
                                             ),
                                           ],

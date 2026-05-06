@@ -1,10 +1,16 @@
+import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import '../models/progress_model.dart';
+import 'local_progress_service.dart';
 
 class ProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final LocalProgressService _localProgressService = LocalProgressService();
+
+  final StreamController<List<ProgressModel>> _progressController =
+      StreamController<List<ProgressModel>>.broadcast();
 
   String get _uid {
     final user = _auth.currentUser;
@@ -16,51 +22,86 @@ class ProgressService {
 
   String _progressDocId(String lessonId) => '${_uid}_$lessonId';
 
+  Future<void> refreshLocalProgressStream() async {
+    final rows = await _localProgressService.getUserLocalProgress(_uid);
+    if (!_progressController.isClosed) {
+      _progressController.add(rows);
+    }
+  }
+
+  Stream<List<ProgressModel>> getUserProgressStream() async* {
+    final initialRows = await _localProgressService.getUserLocalProgress(_uid);
+    yield initialRows;
+    yield* _progressController.stream;
+  }
+
+  Future<List<ProgressModel>> getUserProgressOnce() async {
+    return _localProgressService.getUserLocalProgress(_uid);
+  }
+
+  Future<ProgressModel?> getUserProgressForLesson(String lessonId) async {
+    return _localProgressService.getLocalProgressForLesson(
+      userId: _uid,
+      lessonId: lessonId,
+    );
+  }
+
+  Future<void> syncFullLocalProgressToRemote(String lessonId) async {
+    final local = await _localProgressService.getLocalProgressForLesson(
+      userId: _uid,
+      lessonId: lessonId,
+    );
+
+    if (local == null) return;
+
+    final docId = _progressDocId(lessonId);
+
+    await _firestore.collection('progress').doc(docId).set({
+      'progressId': docId,
+      'userId': _uid,
+      'lessonId': lessonId,
+      'lessonCompleted': local.lessonCompleted,
+      'practiceCompleted': local.practiceCompleted,
+      'quizCompleted': local.quizCompleted,
+      'videoViewed': local.videoViewed,
+      'score': local.score,
+      'videoPositionSeconds': local.videoPositionSeconds,
+      'videoDurationSeconds': local.videoDurationSeconds,
+      'updatedAt': DateTime.now().toIso8601String(),
+    }, SetOptions(merge: true));
+  }
+
   Future<void> saveQuizProgress({
     required String lessonId,
     required int score,
   }) async {
-    final docId = _progressDocId(lessonId);
-    final docRef = _firestore.collection('progress').doc(docId);
+    final existing = await getUserProgressForLesson(lessonId);
+    final bestScore = score > (existing?.score ?? 0)
+        ? score
+        : (existing?.score ?? 0);
 
-    final existingDoc = await docRef.get();
-    final data = existingDoc.data() ?? {};
+    await _localProgressService.saveLessonProgress(
+      progressId: _progressDocId(lessonId),
+      userId: _uid,
+      lessonId: lessonId,
+      quizCompleted: true,
+      score: bestScore,
+    );
 
-    final int existingScore = data['score'] ?? 0;
-
-    final bool finalQuizCompleted = true; // once you call this, quiz is done
-    final int finalScore = score > existingScore ? score : existingScore;
-
-    await docRef.set({
-      'progressId': docId,
-      'userId': _uid,
-      'lessonId': lessonId,
-      'quizCompleted': finalQuizCompleted,
-      'score': finalScore,
-    }, SetOptions(merge: true));
-
-    await updateLessonCompleted(lessonId: lessonId);
+    await refreshLocalProgressStream();
+    await syncFullLocalProgressToRemote(lessonId);
   }
 
   Future<void> savePracticeProgress({required String lessonId}) async {
-    final docId = _progressDocId(lessonId);
-    final docRef = _firestore.collection('progress').doc(docId);
+    await _localProgressService.saveLessonProgress(
+      progressId: _progressDocId(lessonId),
+      userId: _uid,
+      lessonId: lessonId,
+      practiceCompleted: true,
+    );
 
-    final existingDoc = await docRef.get();
-    final data = existingDoc.data() ?? {};
-
-    final bool existingPracticeCompleted = data['practiceCompleted'] ?? false;
-
-    final bool finalPracticeCompleted = existingPracticeCompleted || true;
-
-    await docRef.set({
-      'progressId': docId,
-      'userId': _uid,
-      'lessonId': lessonId,
-      'practiceCompleted': finalPracticeCompleted,
-    }, SetOptions(merge: true));
-
-    await updateLessonCompleted(lessonId: lessonId);
+    await refreshLocalProgressStream();
+    await syncFullLocalProgressToRemote(lessonId);
   }
 
   Future<void> saveVideoProgress({
@@ -69,123 +110,50 @@ class ProgressService {
     required int durationSeconds,
     required bool videoViewed,
   }) async {
-    final docId = _progressDocId(lessonId);
-    final docRef = _firestore.collection('progress').doc(docId);
+    await _localProgressService.saveLessonProgress(
+      progressId: _progressDocId(lessonId),
+      userId: _uid,
+      lessonId: lessonId,
+      videoViewed: videoViewed,
+      videoPositionSeconds: positionSeconds,
+      videoDurationSeconds: durationSeconds,
+    );
 
-    final existingDoc = await docRef.get();
-    final existingData = existingDoc.data() ?? {};
-
-    final bool existingVideoViewed = existingData['videoViewed'] ?? false;
-    final int existingPosition = existingData['videoPositionSeconds'] ?? 0;
-    final int existingDuration = existingData['videoDurationSeconds'] ?? 0;
-
-    final bool finalVideoViewed = existingVideoViewed || videoViewed;
-    final int finalPosition = positionSeconds > existingPosition
-        ? positionSeconds
-        : existingPosition;
-    final int finalDuration = durationSeconds > existingDuration
-        ? durationSeconds
-        : existingDuration;
-
-    await docRef.set({
-      'progressId': docId,
-      'userId': _uid,
-      'lessonId': lessonId,
-      'videoPositionSeconds': finalPosition,
-      'videoDurationSeconds': finalDuration,
-      'videoViewed': finalVideoViewed,
-    }, SetOptions(merge: true));
-
-    await updateLessonCompleted(lessonId: lessonId);
+    await refreshLocalProgressStream();
+    await syncFullLocalProgressToRemote(lessonId);
   }
 
   Future<void> updateLessonCompleted({required String lessonId}) async {
-    final docId = _progressDocId(lessonId);
-    final docRef = _firestore.collection('progress').doc(docId);
-
-    final doc = await docRef.get();
-    final data = doc.data() ?? {};
-
-    final bool quizCompleted = data['quizCompleted'] ?? false;
-    final bool practiceCompleted = data['practiceCompleted'] ?? false;
-    final bool videoViewed = data['videoViewed'] ?? false;
-    final bool existingLessonCompleted = data['lessonCompleted'] ?? false;
-
-    final bool lessonCompleted =
-        existingLessonCompleted ||
-        (quizCompleted && practiceCompleted && videoViewed);
-
-    await docRef.set({
-      'lessonCompleted': lessonCompleted,
-    }, SetOptions(merge: true));
-  }
-
-  Stream<List<ProgressModel>> getUserProgressStream() {
-    return _firestore
-        .collection('progress')
-        .where('userId', isEqualTo: _uid)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) => ProgressModel.fromMap(doc.data()))
-              .toList(),
-        );
-  }
-
-  Future<List<ProgressModel>> getUserProgressOnce() async {
-    final snapshot = await _firestore
-        .collection('progress')
-        .where('userId', isEqualTo: _uid)
-        .get();
-
-    return snapshot.docs
-        .map((doc) => ProgressModel.fromMap(doc.data()))
-        .toList();
-  }
-
-  Future<ProgressModel?> getUserProgressForLesson(String lessonId) async {
-    final docId = _progressDocId(lessonId);
-
-    final doc = await _firestore.collection('progress').doc(docId).get();
-
-    if (!doc.exists || doc.data() == null) {
-      return null;
-    }
-
-    return ProgressModel.fromMap(doc.data()!);
+    await refreshLocalProgressStream();
+    await syncFullLocalProgressToRemote(lessonId);
   }
 
   Future<void> markVideoViewed(String docId) async {
-    await _firestore.collection('progress').doc(docId).set({
-      'videoViewed': true,
-    }, SetOptions(merge: true));
-
     final lessonId = docId.replaceFirst('${_uid}_', '');
-    await updateLessonCompleted(lessonId: lessonId);
+    await saveVideoProgress(
+      lessonId: lessonId,
+      positionSeconds: 0,
+      durationSeconds: 0,
+      videoViewed: true,
+    );
   }
 
   Future<void> markQuizCompleted(String docId, int score) async {
-    await _firestore.collection('progress').doc(docId).set({
-      'quizCompleted': true,
-      'score': score,
-    }, SetOptions(merge: true));
-
     final lessonId = docId.replaceFirst('${_uid}_', '');
-    await updateLessonCompleted(lessonId: lessonId);
+    await saveQuizProgress(lessonId: lessonId, score: score);
   }
 
   Future<void> markPracticeCompleted(String docId) async {
-    await _firestore.collection('progress').doc(docId).set({
-      'practiceCompleted': true,
-    }, SetOptions(merge: true));
-
     final lessonId = docId.replaceFirst('${_uid}_', '');
-    await updateLessonCompleted(lessonId: lessonId);
+    await savePracticeProgress(lessonId: lessonId);
   }
 
   Future<void> markLessonCompleted(String docId) async {
-    await _firestore.collection('progress').doc(docId).set({
-      'lessonCompleted': true,
-    }, SetOptions(merge: true));
+    final lessonId = docId.replaceFirst('${_uid}_', '');
+    await syncFullLocalProgressToRemote(lessonId);
+  }
+
+  void dispose() {
+    _progressController.close();
   }
 }

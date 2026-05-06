@@ -19,6 +19,7 @@ import 'lesson_header_tabs.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import '../services/sync_queue_service.dart';
 
 class PracticeScreen extends StatefulWidget {
   final Lesson lesson;
@@ -30,6 +31,7 @@ class PracticeScreen extends StatefulWidget {
 }
 
 class _PracticeScreenState extends State<PracticeScreen> {
+  final SyncQueueService syncQueueService = SyncQueueService();
   late Future<List<PracticeModel>> _practicesFuture;
   final FirestoreService firestoreService = FirestoreService();
   final LocalLessonContentService localLessonContentService =
@@ -60,8 +62,8 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<bool> hasInternet() async {
-    final result = await Connectivity().checkConnectivity();
-    return !result.contains(ConnectivityResult.none);
+    final results = await Connectivity().checkConnectivity();
+    return !results.contains(ConnectivityResult.none);
   }
 
   Future<String> getUid() async {
@@ -296,49 +298,64 @@ class _PracticeScreenState extends State<PracticeScreen> {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
-    final uid = user.uid;
-    final existingRows = await localProgressService.getUserLocalProgress(uid);
-
-    ProgressModel? existing;
-    try {
-      existing = existingRows.firstWhere(
-        (item) => item.lessonId == widget.lesson.lessonId,
-      );
-    } catch (_) {
-      existing = null;
-    }
-
-    const bool completedPractice = true;
-    final bool quizCompleted = existing?.quizCompleted ?? false;
-    final bool videoViewed = existing?.videoViewed ?? false;
-    final int score = existing?.score ?? 0;
-    final bool lessonCompleted =
-        quizCompleted && completedPractice && videoViewed;
-
-    await localProgressService.upsertLocalProgress(
-      progressId: '${uid}_${widget.lesson.lessonId}',
+    final uid = await getUid();
+    final existing = await localProgressService.getLocalProgressForLesson(
       userId: uid,
       lessonId: widget.lesson.lessonId,
-      lessonCompleted: lessonCompleted,
-      practiceCompleted: completedPractice,
-      quizCompleted: quizCompleted,
-      videoViewed: videoViewed,
-      score: score,
-      videoPositionSeconds: existing?.videoPositionSeconds ?? 0,
-      videoDurationSeconds: existing?.videoDurationSeconds ?? 0,
     );
 
-    try {
-      await progressService.savePracticeProgress(
-        lessonId: widget.lesson.lessonId,
-      );
-      await progressService.updateLessonCompleted(
-        lessonId: widget.lesson.lessonId,
-      );
-      await progressSyncService.syncPendingProgress();
-    } catch (e) {
-      debugPrint('Remote practice progress sync failed: $e');
-    }
+    debugPrint(
+      'PRACTICE EXISTING ROW -> '
+      'lessonId=${widget.lesson.lessonId}, '
+      'quizCompleted=${existing?.quizCompleted}, '
+      'practiceCompleted=${existing?.practiceCompleted}, '
+      'videoViewed=${existing?.videoViewed}, '
+      'lessonCompleted=${existing?.lessonCompleted}, '
+      'score=${existing?.score}, '
+      'videoPositionSeconds=${existing?.videoPositionSeconds}, '
+      'videoDurationSeconds=${existing?.videoDurationSeconds}',
+    );
+
+    const bool completedPractice = true;
+    final progressId = '${uid}_${widget.lesson.lessonId}';
+
+    // Only update practiceCompleted locally; LocalProgressService will merge
+    // with existing quiz/video flags and compute lessonCompleted.
+    await localProgressService.saveLessonProgress(
+      progressId: progressId,
+      userId: uid,
+      lessonId: widget.lesson.lessonId,
+      practiceCompleted: completedPractice,
+    );
+
+    await progressService.refreshLocalProgressStream();
+
+    final saved = await localProgressService.getLocalProgressForLesson(
+      userId: uid,
+      lessonId: widget.lesson.lessonId,
+    );
+
+    debugPrint(
+      'PRACTICE SAVED ROW -> '
+      'lessonId=${widget.lesson.lessonId}, '
+      'quizCompleted=${saved?.quizCompleted}, '
+      'practiceCompleted=${saved?.practiceCompleted}, '
+      'videoViewed=${saved?.videoViewed}, '
+      'lessonCompleted=${saved?.lessonCompleted}, '
+      'score=${saved?.score}, '
+      'videoPositionSeconds=${saved?.videoPositionSeconds}, '
+      'videoDurationSeconds=${saved?.videoDurationSeconds}',
+    );
+
+    debugPrint(
+      'PRACTICE LOCAL SAVE -> '
+      'lessonId=${widget.lesson.lessonId}, '
+      'quizCompleted=${saved?.quizCompleted}, '
+      'practiceCompleted=${saved?.practiceCompleted}, '
+      'videoViewed=${saved?.videoViewed}, '
+      'lessonCompleted=${saved?.lessonCompleted}, '
+      'score=${saved?.score}',
+    );
 
     if (!mounted) return;
 
@@ -348,6 +365,39 @@ class _PracticeScreenState extends State<PracticeScreen> {
       practiceCompleted = true;
       output = AppStrings.text(lang, 'practiceTaskMarkedCompleted');
     });
+
+    final payload = {
+      'progressId': progressId,
+      'userId': uid,
+      'lessonId': widget.lesson.lessonId,
+      'practiceCompleted': 1,
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+
+    try {
+      await syncQueueService.addToQueue(
+        entityType: 'progress',
+        entityId: widget.lesson.lessonId,
+        operation: 'upsert',
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('Queue add failed: $e');
+    }
+
+    try {
+      final connectivityResults = await Connectivity().checkConnectivity();
+      final isOffline = connectivityResults.contains(ConnectivityResult.none);
+
+      if (!isOffline) {
+        await progressService.syncFullLocalProgressToRemote(
+          widget.lesson.lessonId,
+        );
+        await progressSyncService.syncPendingProgress();
+      }
+    } catch (e) {
+      debugPrint('Remote practice progress sync failed: $e');
+    }
   }
 
   Future<void> goToNextLesson() async {
@@ -670,7 +720,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
         title: Padding(
           padding: const EdgeInsets.only(left: 12),
           child: Text(
-            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
+            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.titleForLang(lang)}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,

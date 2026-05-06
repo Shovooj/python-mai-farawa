@@ -7,6 +7,9 @@ import 'package:provider/provider.dart';
 import '../language_provider.dart';
 import '../models/progress_model.dart';
 import '../services/progress_service.dart';
+import '../services/local_lesson_content_service.dart';
+import '../services/firestore_service.dart';
+import '../services/local_video_service.dart';
 
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
@@ -16,19 +19,52 @@ class LessonListScreen extends StatefulWidget {
 }
 
 class _LessonListScreenState extends State<LessonListScreen> {
+  late Future<List<Lesson>> _lessonsFuture;
+
+  final LocalVideoService localVideoService = LocalVideoService();
+
+  @override
+  void initState() {
+    super.initState();
+    _lessonsFuture = _loadLessons();
+  }
+
+  final FirestoreService _firestoreService = FirestoreService();
+  final LocalLessonContentService _localLessonContentService =
+      LocalLessonContentService();
+
+  final Set<String> _downloadingLessonIds = {};
   final ProgressService _progressService = ProgressService();
   final OfflineLessonService _offlineLessonService = OfflineLessonService();
   String searchQuery = '';
+
+  int _downloadStatusVersion = 0;
 
   Future<List<Lesson>> _loadLessons() async {
     try {
       await _offlineLessonService.cacheLessonsFromFirestore();
     } catch (e) {
-      // If online fetch fails, use locally saved lessons
+      debugPrint('Lesson cache failed: $e');
     }
 
     final localLessonMaps = await _offlineLessonService.getLocalLessons();
-    return localLessonMaps.map((map) => Lesson.fromMap(map)).toList();
+    final localLessons = localLessonMaps
+        .map((map) => Lesson.fromMap(map))
+        .toList();
+
+    if (localLessons.isNotEmpty) {
+      return localLessons;
+    }
+
+    debugPrint('No local lessons found, falling back to Firestore.');
+
+    try {
+      final firestoreLessons = await _firestoreService.getPublishedLessons();
+      return firestoreLessons;
+    } catch (e) {
+      debugPrint('Firestore fallback failed: $e');
+      return [];
+    }
   }
 
   List<Lesson> _filterLessons(List<Lesson> lessons, String lang) {
@@ -61,6 +97,58 @@ class _LessonListScreenState extends State<LessonListScreen> {
       context,
       MaterialPageRoute(builder: (_) => LessonDetailScreen(lesson: lesson)),
     );
+  }
+
+  Future<void> downloadLesson(Lesson lesson) async {
+    final lang = context.read<LanguageProvider>().languageCode;
+
+    if (_downloadingLessonIds.contains(lesson.lessonId)) return;
+
+    setState(() {
+      _downloadingLessonIds.add(lesson.lessonId);
+    });
+
+    try {
+      await _localLessonContentService.downloadLessonPackageFromFirestore(
+        lessonId: lesson.lessonId,
+      );
+
+      final videoUrl = lesson.videoUrl.trim();
+      if (videoUrl.isNotEmpty) {
+        await localVideoService.downloadVideo(
+          lessonId: lesson.lessonId,
+          videoUrl: videoUrl,
+        );
+      }
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            '${lesson.titleForLang(lang)} downloaded for offline use.',
+          ),
+        ),
+      );
+
+      setState(() {
+        _downloadStatusVersion++;
+      });
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to download ${lesson.titleForLang(lang)}: $e'),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _downloadingLessonIds.remove(lesson.lessonId);
+        });
+      }
+    }
   }
 
   @override
@@ -117,7 +205,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
             const SizedBox(height: 16),
             Expanded(
               child: FutureBuilder<List<Lesson>>(
-                future: _loadLessons(),
+                future: _lessonsFuture,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Center(child: CircularProgressIndicator());
@@ -195,6 +283,10 @@ class _LessonListScreenState extends State<LessonListScreen> {
                               progressMap[lesson.lessonId]?.lessonCompleted ==
                               true;
 
+                          final isDownloading = _downloadingLessonIds.contains(
+                            lesson.lessonId,
+                          );
+
                           return GestureDetector(
                             onTap: unlocked
                                 ? () => openLesson(lesson, completed)
@@ -236,17 +328,74 @@ class _LessonListScreenState extends State<LessonListScreen> {
                                       ),
                                     ),
                                     const SizedBox(width: 8),
-                                    Icon(
-                                      completed
-                                          ? Icons.check_circle
-                                          : unlocked
-                                          ? Icons.lock_open
-                                          : Icons.lock,
-                                      size: 20,
-                                      color: completed
-                                          ? Colors.green
-                                          : const Color(0xFF2D8CE0),
-                                    ),
+
+                                    if (completed)
+                                      const Icon(
+                                        Icons.check_circle,
+                                        size: 20,
+                                        color: Colors.green,
+                                      )
+                                    else if (unlocked)
+                                      FutureBuilder<bool>(
+                                        future: _localLessonContentService
+                                            .isLessonPackageDownloaded(
+                                              lesson.lessonId,
+                                            ),
+                                        key: ValueKey(
+                                          '${lesson.lessonId}_$_downloadStatusVersion',
+                                        ),
+                                        builder: (context, downloadSnapshot) {
+                                          final isDownloaded =
+                                              downloadSnapshot.data ?? false;
+
+                                          return Row(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              const SizedBox(width: 4),
+                                              if (isDownloading)
+                                                const SizedBox(
+                                                  width: 22,
+                                                  height: 22,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                        strokeWidth: 2.4,
+                                                      ),
+                                                )
+                                              else if (isDownloaded)
+                                                const Icon(
+                                                  Icons.download_done_rounded,
+                                                  size: 22,
+                                                  color: Colors.green,
+                                                )
+                                              else
+                                                IconButton(
+                                                  onPressed: () =>
+                                                      downloadLesson(lesson),
+                                                  icon: const Icon(
+                                                    Icons.download_rounded,
+                                                    color: Color(0xFF2D8CE0),
+                                                    size: 22,
+                                                  ),
+                                                  tooltip: 'Download lesson',
+                                                  constraints: BoxConstraints(),
+                                                  padding: EdgeInsets.zero,
+                                                ),
+                                              const SizedBox(width: 6),
+                                              const Icon(
+                                                Icons.lock_open_rounded,
+                                                size: 20,
+                                                color: Color(0xFF2D8CE0),
+                                              ),
+                                            ],
+                                          );
+                                        },
+                                      )
+                                    else
+                                      const Icon(
+                                        Icons.lock,
+                                        size: 20,
+                                        color: Color(0xFF2D8CE0),
+                                      ),
                                   ],
                                 ),
                               ),
