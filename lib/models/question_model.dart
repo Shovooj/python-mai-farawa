@@ -35,21 +35,23 @@ class QuestionModel {
 
   factory QuestionModel.fromMap(Map<String, dynamic> map) {
     return QuestionModel(
-      questionId: map['questionId'] ?? '',
-      quizId: map['quizId'] ?? '',
-      lessonId: map['lessonId'] ?? '',
-      questionText: map['questionText'] ?? '',
-      questionTextHa: map['questionTextHa'] ?? '',
-      optionA: map['optionA'] ?? '',
-      optionAHa: map['optionAHa'] ?? '',
-      optionB: map['optionB'] ?? '',
-      optionBHa: map['optionBHa'] ?? '',
-      optionC: map['optionC'] ?? '',
-      optionCHa: map['optionCHa'] ?? '',
-      optionD: map['optionD'] ?? '',
-      optionDHa: map['optionDHa'] ?? '',
-      correctAnswer: map['correctAnswer'] ?? '',
-      order: map['order'] ?? 0,
+      questionId: map['questionId']?.toString() ?? '',
+      quizId: map['quizId']?.toString() ?? '',
+      lessonId: map['lessonId']?.toString() ?? '',
+      questionText: map['questionText']?.toString() ?? '',
+      optionA: map['optionA']?.toString() ?? '',
+      optionB: map['optionB']?.toString() ?? '',
+      optionC: map['optionC']?.toString() ?? '',
+      optionD: map['optionD']?.toString() ?? '',
+      correctAnswer: map['correctAnswer']?.toString() ?? '',
+      order: map['order'] is int
+          ? map['order'] as int
+          : int.tryParse(map['order']?.toString() ?? '0') ?? 0,
+      questionTextHa: map['questionTextHa']?.toString() ?? '',
+      optionAHa: map['optionAHa']?.toString() ?? '',
+      optionBHa: map['optionBHa']?.toString() ?? '',
+      optionCHa: map['optionCHa']?.toString() ?? '',
+      optionDHa: map['optionDHa']?.toString() ?? '',
     );
   }
 

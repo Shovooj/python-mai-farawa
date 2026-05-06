@@ -56,6 +56,11 @@ class _QuizScreenState extends State<QuizScreen> {
           widget.lesson.lessonId,
         );
 
+        debugPrint(
+          'QUIZ FOR LESSON ${widget.lesson.lessonId} -> '
+          '${onlineQuiz == null ? "null" : onlineQuiz.quizId}',
+        );
+
         if (onlineQuiz != null) {
           await localLessonContentService.cacheQuiz(
             quizId: onlineQuiz.quizId,
@@ -91,10 +96,16 @@ class _QuizScreenState extends State<QuizScreen> {
   Future<List<QuestionModel>> loadQuestions(String quizId) async {
     if (await hasInternet()) {
       try {
+        debugPrint('ONLINE QUESTION FETCH START -> quizId=$quizId');
+
         final questionStream = await firestoreService.getQuestionsByQuizId(
           quizId,
         );
         final onlineQuestions = await questionStream.first;
+
+        debugPrint(
+          'ONLINE QUESTIONS COUNT FOR $quizId -> ${onlineQuestions.length}',
+        );
 
         await localLessonContentService.cacheQuestions(
           quizId,
@@ -120,12 +131,24 @@ class _QuizScreenState extends State<QuizScreen> {
               )
               .toList(),
         );
-      } catch (_) {}
+
+        return onlineQuestions;
+      } catch (e, st) {
+        debugPrint('ONLINE QUESTION FETCH FAILED FOR $quizId -> $e');
+        debugPrint('$st');
+      }
     }
 
     final localRows = await localLessonContentService.getQuestionsByQuizId(
       quizId,
     );
+
+    debugPrint('LOCAL QUESTIONS COUNT FOR $quizId -> ${localRows.length}');
+    for (final row in localRows) {
+      debugPrint(
+        'LOCAL QUESTION -> id=${row['questionId']}, quizId=${row['quizId']}, lessonId=${row['lessonId']}, order=${row['order']}',
+      );
+    }
 
     return localRows
         .map(

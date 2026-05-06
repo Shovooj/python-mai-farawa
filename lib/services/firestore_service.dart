@@ -31,15 +31,29 @@ class FirestoreService {
   }
 
   Future<List<PracticeModel>> getPracticesByLessonId(String lessonId) async {
-    final snapshot = await _firestore
+    final snapshot = await FirebaseFirestore.instance
         .collection('practices')
         .where('lessonId', isEqualTo: lessonId)
-        .orderBy('order')
         .get();
 
-    return snapshot.docs
-        .map((doc) => PracticeModel.fromMap(doc.data()))
-        .toList();
+    return snapshot.docs.map((doc) {
+      final data = doc.data();
+
+      return PracticeModel(
+        practiceId: data['practiceId']?.toString() ?? doc.id,
+        lessonId: data['lessonId']?.toString() ?? '',
+        title: data['title']?.toString() ?? '',
+        instruction: data['instruction']?.toString() ?? '',
+        starterCode: data['starterCode']?.toString() ?? '',
+        expectedOutput: data['expectedOutput']?.toString() ?? '',
+        order: data['order'] is int
+            ? data['order'] as int
+            : int.tryParse(data['order']?.toString() ?? '0') ?? 0,
+        titleHa: data['titleHa']?.toString() ?? '',
+        instructionHa: data['instructionHa']?.toString() ?? '',
+        expectedOutputHa: data['expectedOutputHa']?.toString() ?? '',
+      );
+    }).toList();
   }
 
   Future<QuizModel?> getQuizByLessonId(String lessonId) async {

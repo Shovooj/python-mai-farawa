@@ -25,16 +25,18 @@ class PracticeModel {
 
   factory PracticeModel.fromMap(Map<String, dynamic> map) {
     return PracticeModel(
-      practiceId: map['practiceId'] ?? '',
-      lessonId: map['lessonId'] ?? '',
-      title: map['title'] ?? '',
-      titleHa: map['titleHa'] ?? '',
-      instruction: map['instruction'] ?? '',
-      instructionHa: map['instructionHa'] ?? '',
-      starterCode: map['starterCode'] ?? '',
-      expectedOutput: map['expectedOutput'] ?? '',
-      expectedOutputHa: map['expectedOutputHa'] ?? '',
-      order: (map['order'] as num?)?.toInt() ?? 0,
+      practiceId: map['practiceId']?.toString() ?? '',
+      lessonId: map['lessonId']?.toString() ?? '',
+      title: map['title']?.toString() ?? '',
+      instruction: map['instruction']?.toString() ?? '',
+      starterCode: map['starterCode']?.toString() ?? '',
+      expectedOutput: map['expectedOutput']?.toString() ?? '',
+      order: map['order'] is int
+          ? map['order'] as int
+          : int.tryParse(map['order']?.toString() ?? '0') ?? 0,
+      titleHa: map['titleHa']?.toString() ?? '',
+      instructionHa: map['instructionHa']?.toString() ?? '',
+      expectedOutputHa: map['expectedOutputHa']?.toString() ?? '',
     );
   }
 
