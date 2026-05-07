@@ -63,9 +63,12 @@ class LocalLessonContentService {
     required String practiceId,
     required String lessonId,
     required String title,
+    required String titleHa,
     required String instruction,
+    required String instructionHa,
     required String starterCode,
     required String expectedOutput,
+    required String expectedOutputHa,
     required int order,
   }) async {
     final db = await _db;
@@ -73,9 +76,12 @@ class LocalLessonContentService {
       'practiceId': practiceId,
       'lessonId': lessonId,
       'title': title,
+      'titleHa': titleHa,
       'instruction': instruction,
+      'instructionHa': instructionHa,
       'starterCode': starterCode,
       'expectedOutput': expectedOutput,
+      'expectedOutputHa': expectedOutputHa,
       'practiceOrder': order,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -244,9 +250,12 @@ class LocalLessonContentService {
             'practiceId': p.practiceId,
             'lessonId': p.lessonId,
             'title': p.title,
+            'titleHa': p.titleHa,
             'instruction': p.instruction,
+            'instructionHa': p.instructionHa,
             'starterCode': p.starterCode,
             'expectedOutput': p.expectedOutput,
+            'expectedOutputHa': p.expectedOutputHa,
             'practiceOrder': p.order,
           },
         )

@@ -171,22 +171,82 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<List<PracticeModel>> loadPractices() async {
-    final lang = context.read<LanguageProvider>().languageCode;
     try {
-      if (await hasInternet()) {
+      final isDownloaded = await localLessonContentService
+          .isLessonPackageDownloaded(widget.lesson.lessonId);
+
+      debugPrint(
+        'PRACTICE LOAD -> lessonId=${widget.lesson.lessonId}, isDownloaded=$isDownloaded',
+      );
+
+      if (isDownloaded) {
+        final localRows = await localLessonContentService
+            .getPracticesByLessonId(widget.lesson.lessonId);
+
+        debugPrint(
+          'PRACTICE LOAD -> local row count for lesson ${widget.lesson.lessonId}: ${localRows.length}',
+        );
+
+        final localPractices =
+            localRows
+                .map(
+                  (row) => PracticeModel(
+                    practiceId: row['practiceId'] as String? ?? '',
+                    lessonId: row['lessonId'] as String? ?? '',
+                    title: row['title'] as String? ?? '',
+                    instruction: row['instruction'] as String? ?? '',
+                    starterCode: row['starterCode'] as String? ?? '',
+                    expectedOutput: row['expectedOutput'] as String? ?? '',
+                    order:
+                        row['practiceOrder'] as int? ??
+                        row['order'] as int? ??
+                        0,
+                    titleHa: row['titleHa'] as String? ?? '',
+                    instructionHa: row['instructionHa'] as String? ?? '',
+                    expectedOutputHa: row['expectedOutputHa'] as String? ?? '',
+                  ),
+                )
+                .toList()
+              ..sort((a, b) => a.order.compareTo(b.order));
+
+        if (localPractices.isNotEmpty) {
+          debugPrint(
+            'PRACTICE LOAD -> using LOCAL practices for lesson ${widget.lesson.lessonId}',
+          );
+          return localPractices;
+        }
+
+        debugPrint(
+          'PRACTICE LOAD -> lesson marked downloaded but no local practices found',
+        );
+      }
+
+      final online = await hasInternet();
+      debugPrint(
+        'PRACTICE LOAD -> fallback online check for lesson ${widget.lesson.lessonId}: $online',
+      );
+
+      if (online) {
         final onlinePractices = await firestoreService.getPracticesByLessonId(
           widget.lesson.lessonId,
+        );
+
+        debugPrint(
+          'PRACTICE LOAD -> online practice count for lesson ${widget.lesson.lessonId}: ${onlinePractices.length}',
         );
 
         for (final practice in onlinePractices) {
           await localLessonContentService.cachePractice(
             practiceId: practice.practiceId,
             lessonId: practice.lessonId,
-            title: practice.titleForLang(lang),
-            instruction: practice.instructionForLang(lang),
+            title: practice.title,
+            instruction: practice.instruction,
             starterCode: practice.starterCode,
-            expectedOutput: practice.expectedOutputForLang(lang),
+            expectedOutput: practice.expectedOutput,
             order: practice.order,
+            titleHa: practice.titleHa,
+            instructionHa: practice.instructionHa,
+            expectedOutputHa: practice.expectedOutputHa,
           );
         }
 
@@ -194,13 +254,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
           return onlinePractices..sort((a, b) => a.order.compareTo(b.order));
         }
       }
-    } catch (e) {
-      debugPrint('Online practice load failed: $e');
-    }
 
-    try {
       final localRows = await localLessonContentService.getPracticesByLessonId(
         widget.lesson.lessonId,
+      );
+
+      debugPrint(
+        'PRACTICE LOAD -> final local fallback row count for lesson ${widget.lesson.lessonId}: ${localRows.length}',
       );
 
       final localPractices =
@@ -214,9 +274,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
                   starterCode: row['starterCode'] as String? ?? '',
                   expectedOutput: row['expectedOutput'] as String? ?? '',
                   order:
-                      (row['practiceOrder'] as int?) ??
-                      (row['order'] as int?) ??
-                      0,
+                      row['practiceOrder'] as int? ?? row['order'] as int? ?? 0,
                   titleHa: row['titleHa'] as String? ?? '',
                   instructionHa: row['instructionHa'] as String? ?? '',
                   expectedOutputHa: row['expectedOutputHa'] as String? ?? '',
@@ -227,7 +285,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
 
       return localPractices;
     } catch (e) {
-      debugPrint('Local practice load failed: $e');
+      debugPrint('PRACTICE LOAD FAILED -> $e');
       rethrow;
     }
   }

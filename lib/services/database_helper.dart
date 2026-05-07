@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 9,
+      version: 10,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -68,7 +68,6 @@ class DatabaseHelper {
     }
 
     if (oldVersion < 4) {
-      // If an old practices table exists without the column, add it
       await db.execute('''
     ALTER TABLE practices ADD COLUMN practiceOrder INTEGER NOT NULL DEFAULT 0
   ''');
@@ -110,6 +109,14 @@ class DatabaseHelper {
           updatedAt TEXT
         )
       ''');
+    }
+
+    if (oldVersion < 10) {
+      await db.execute('ALTER TABLE practices ADD COLUMN titleHa TEXT');
+      await db.execute('ALTER TABLE practices ADD COLUMN instructionHa TEXT');
+      await db.execute(
+        'ALTER TABLE practices ADD COLUMN expectedOutputHa TEXT',
+      );
     }
   }
 
@@ -207,9 +214,12 @@ class DatabaseHelper {
         practiceId TEXT PRIMARY KEY,
         lessonId TEXT NOT NULL,
         title TEXT NOT NULL,
+        titleHa TEXT,
         instruction TEXT NOT NULL,
+        instructionHa TEXT,
         starterCode TEXT NOT NULL,
         expectedOutput TEXT NOT NULL,
+        expectedOutputHa TEXT,
         practiceOrder INTEGER NOT NULL DEFAULT 0
       )
     ''');

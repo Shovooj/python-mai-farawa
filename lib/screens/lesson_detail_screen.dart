@@ -113,9 +113,12 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           practiceId: practice.practiceId,
           lessonId: practice.lessonId,
           title: practice.title,
+          titleHa: practice.titleHa,
           instruction: practice.instruction,
+          instructionHa: practice.instructionHa,
           starterCode: practice.starterCode,
           expectedOutput: practice.expectedOutput,
+          expectedOutputHa: practice.expectedOutputHa,
           order: practice.order,
         );
       }

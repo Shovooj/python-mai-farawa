@@ -333,7 +333,7 @@ class AppStrings {
       'youDidNotPass': 'Ba ka wuce ba',
       'youScored': 'Ka zira kwallaye',
       'outOf': 'daga',
-      'passMark': 'Alamar wucewa:',
+      'passMark': 'Alamar wucewa',
       'moveToPractice': 'Matsar zuwa Aiki',
       'tryAgain': 'Gwada kuma',
 

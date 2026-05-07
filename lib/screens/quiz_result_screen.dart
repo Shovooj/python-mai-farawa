@@ -226,25 +226,52 @@ class QuizResultScreen extends StatelessWidget {
                         height: 50,
                         child: ElevatedButton(
                           onPressed: () async {
+                            debugPrint(
+                              'MOVE TO PRACTICE TAP -> start, lessonId=${lesson.lessonId}',
+                            );
+
                             try {
-                              await saveQuizProgressOfflineFirst(context);
-                            } catch (e, st) {
                               debugPrint(
-                                'Failed to save quiz progress from result screen: $e',
+                                'MOVE TO PRACTICE -> before saveQuizProgressOfflineFirst',
                               );
-                              debugPrintStack(stackTrace: st);
+                              await saveQuizProgressOfflineFirst(context);
+                              debugPrint(
+                                'MOVE TO PRACTICE -> after saveQuizProgressOfflineFirst',
+                              );
+                            } catch (e, st) {
+                              debugPrint('MOVE TO PRACTICE -> save failed: $e');
+                              debugPrint('$st');
                             }
 
-                            if (!context.mounted) return;
+                            if (!context.mounted) {
+                              debugPrint(
+                                'MOVE TO PRACTICE -> context not mounted',
+                              );
+                              return;
+                            }
 
-                            Navigator.pushReplacement(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => hasPassed
-                                    ? PracticeScreen(lesson: lesson)
-                                    : QuizScreen(lesson: lesson),
-                              ),
+                            debugPrint(
+                              'MOVE TO PRACTICE -> before Navigator.pushReplacement',
                             );
+
+                            try {
+                              await Navigator.pushReplacement(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => hasPassed
+                                      ? PracticeScreen(lesson: lesson)
+                                      : QuizScreen(lesson: lesson),
+                                ),
+                              );
+                              debugPrint(
+                                'MOVE TO PRACTICE -> navigation completed',
+                              );
+                            } catch (e, st) {
+                              debugPrint(
+                                'MOVE TO PRACTICE -> navigation failed: $e',
+                              );
+                              debugPrint('$st');
+                            }
                           },
                           style: ElevatedButton.styleFrom(
                             backgroundColor: hasPassed
