@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import '../localization/app_strings.dart';
 
 class LessonHeaderTabs extends StatelessWidget {
   final String activeTab;
@@ -11,6 +11,11 @@ class LessonHeaderTabs extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final lang = context.watch<LanguageProvider>().languageCode;
+
+    final videoTab = AppStrings.text(lang, 'activeTabVideo');
+    final quizTab = AppStrings.text(lang, 'activeTabQuiz');
+    final practiceTab = AppStrings.text(lang, 'activeTabPractice');
+
     return Container(
       color: Colors.white,
       padding: const EdgeInsets.only(top: 14, left: 22, right: 22),
@@ -19,17 +24,11 @@ class LessonHeaderTabs extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              _HeaderTab(title: videoTab, isActive: activeTab == videoTab),
+              _HeaderTab(title: quizTab, isActive: activeTab == quizTab),
               _HeaderTab(
-                title: AppStrings.text(lang, 'video'),
-                isActive: activeTab == 'video',
-              ),
-              _HeaderTab(
-                title: AppStrings.text(lang, 'quiz'),
-                isActive: activeTab == 'quiz',
-              ),
-              _HeaderTab(
-                title: AppStrings.text(lang, 'practice'),
-                isActive: activeTab == 'practice',
+                title: practiceTab,
+                isActive: activeTab == practiceTab,
               ),
             ],
           ),
@@ -48,6 +47,8 @@ class _HeaderTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    const activeGreen = Color(0xFF4CAF50);
+
     return Column(
       children: [
         Text(
@@ -55,7 +56,7 @@ class _HeaderTab extends StatelessWidget {
           style: TextStyle(
             fontSize: 15,
             fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-            color: isActive ? const Color(0xFF2D8CE0) : Colors.black54,
+            color: isActive ? activeGreen : Colors.black54,
           ),
         ),
         const SizedBox(height: 8),
@@ -63,7 +64,7 @@ class _HeaderTab extends StatelessWidget {
           width: 40,
           height: 3,
           decoration: BoxDecoration(
-            color: isActive ? const Color(0xFF2D8CE0) : Colors.transparent,
+            color: isActive ? activeGreen : Colors.transparent,
             borderRadius: BorderRadius.circular(10),
           ),
         ),
