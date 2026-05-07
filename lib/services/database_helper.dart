@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 10,
+      version: 11,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -118,6 +118,10 @@ class DatabaseHelper {
         'ALTER TABLE practices ADD COLUMN expectedOutputHa TEXT',
       );
     }
+
+    if (oldVersion < 11) {
+      await db.execute('ALTER TABLE quizzes ADD COLUMN titleHa TEXT');
+    }
   }
 
   Future<void> _createDB(Database db, int version) async {
@@ -184,6 +188,7 @@ class DatabaseHelper {
         quizId TEXT PRIMARY KEY,
         lessonId TEXT NOT NULL,
         title TEXT NOT NULL,
+        titleHa TEXT,
         passingScore INTEGER NOT NULL,
         totalQuestions INTEGER NOT NULL
       )

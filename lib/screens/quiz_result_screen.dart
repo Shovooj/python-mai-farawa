@@ -14,6 +14,7 @@ import 'quiz_screen.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import '../services/local_lesson_content_service.dart';
 
 class QuizResultScreen extends StatelessWidget {
   final Lesson lesson;
@@ -43,6 +44,20 @@ class QuizResultScreen extends StatelessWidget {
     }
 
     return user.uid;
+  }
+
+  Future<bool> ensurePracticeAvailableOffline(BuildContext context) async {
+    final localLessonContentService = LocalLessonContentService();
+
+    final localRows = await localLessonContentService.getPracticesByLessonId(
+      lesson.lessonId,
+    );
+
+    debugPrint(
+      'MOVE TO PRACTICE CHECK -> lessonId=${lesson.lessonId}, local practice count=${localRows.length}',
+    );
+
+    return localRows.isNotEmpty;
   }
 
   Future<void> saveQuizProgressOfflineFirst(BuildContext context) async {
@@ -231,28 +246,31 @@ class QuizResultScreen extends StatelessWidget {
                             );
 
                             try {
-                              debugPrint(
-                                'MOVE TO PRACTICE -> before saveQuizProgressOfflineFirst',
-                              );
                               await saveQuizProgressOfflineFirst(context);
-                              debugPrint(
-                                'MOVE TO PRACTICE -> after saveQuizProgressOfflineFirst',
-                              );
                             } catch (e, st) {
                               debugPrint('MOVE TO PRACTICE -> save failed: $e');
                               debugPrint('$st');
                             }
 
-                            if (!context.mounted) {
-                              debugPrint(
-                                'MOVE TO PRACTICE -> context not mounted',
-                              );
-                              return;
-                            }
+                            if (!context.mounted) return;
 
-                            debugPrint(
-                              'MOVE TO PRACTICE -> before Navigator.pushReplacement',
-                            );
+                            if (hasPassed) {
+                              final hasLocalPractice =
+                                  await ensurePracticeAvailableOffline(context);
+
+                              if (!context.mounted) return;
+
+                              if (!hasLocalPractice) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      'Practice content is not available offline for this lesson yet. Please re-download this lesson while online.',
+                                    ),
+                                  ),
+                                );
+                                return;
+                              }
+                            }
 
                             try {
                               await Navigator.pushReplacement(
@@ -262,9 +280,6 @@ class QuizResultScreen extends StatelessWidget {
                                       ? PracticeScreen(lesson: lesson)
                                       : QuizScreen(lesson: lesson),
                                 ),
-                              );
-                              debugPrint(
-                                'MOVE TO PRACTICE -> navigation completed',
                               );
                             } catch (e, st) {
                               debugPrint(

@@ -11,6 +11,7 @@ class LocalLessonContentService {
     required String quizId,
     required String lessonId,
     required String title,
+    String titleHa = '',
     required int passingScore,
     required int totalQuestions,
   }) async {
@@ -19,6 +20,7 @@ class LocalLessonContentService {
       'quizId': quizId,
       'lessonId': lessonId,
       'title': title,
+      'titleHa': titleHa,
       'passingScore': passingScore,
       'totalQuestions': totalQuestions,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -56,19 +58,24 @@ class LocalLessonContentService {
 
   Future<List<Map<String, dynamic>>> getQuestionsByQuizId(String quizId) async {
     final db = await _db;
-    return db.query('questions', where: 'quizId = ?', whereArgs: [quizId]);
+    return db.query(
+      'questions',
+      where: 'quizId = ?',
+      whereArgs: [quizId],
+      orderBy: '"order" ASC',
+    );
   }
 
   Future<void> cachePractice({
     required String practiceId,
     required String lessonId,
     required String title,
-    required String titleHa,
+    String titleHa = '',
     required String instruction,
-    required String instructionHa,
+    String instructionHa = '',
     required String starterCode,
     required String expectedOutput,
-    required String expectedOutputHa,
+    String expectedOutputHa = '',
     required int order,
   }) async {
     final db = await _db;
@@ -86,6 +93,18 @@ class LocalLessonContentService {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
+  Future<List<Map<String, dynamic>>> getPracticesByLessonId(
+    String lessonId,
+  ) async {
+    final db = await _db;
+    return db.query(
+      'practices',
+      where: 'lessonId = ?',
+      whereArgs: [lessonId],
+      orderBy: 'practiceOrder ASC',
+    );
+  }
+
   Future<void> markLessonAsDownloaded({
     required String lessonId,
     required bool isDownloaded,
@@ -93,12 +112,13 @@ class LocalLessonContentService {
   }) async {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
+    final existing = await getDownloadedLesson(lessonId);
 
     await db.insert('downloaded_lessons', {
       'lessonId': lessonId,
       'isDownloaded': isDownloaded ? 1 : 0,
       'videoDownloaded': videoDownloaded ? 1 : 0,
-      'downloadedAt': now,
+      'downloadedAt': existing?['downloadedAt'] ?? now,
       'updatedAt': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -132,11 +152,9 @@ class LocalLessonContentService {
 
     await db.insert('downloaded_lessons', {
       'lessonId': lessonId,
-      'isDownloaded': existing == null
-          ? 0
-          : ((existing['isDownloaded'] as int? ?? 0)),
+      'isDownloaded': (existing?['isDownloaded'] as int? ?? 0),
       'videoDownloaded': videoDownloaded ? 1 : 0,
-      'downloadedAt': existing?['downloadedAt'],
+      'downloadedAt': existing?['downloadedAt'] ?? now,
       'updatedAt': now,
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
@@ -157,6 +175,7 @@ class LocalLessonContentService {
           'quizId': quiz['quizId'],
           'lessonId': quiz['lessonId'],
           'title': quiz['title'],
+          'titleHa': quiz['titleHa'] ?? '',
           'passingScore': quiz['passingScore'],
           'totalQuestions': quiz['totalQuestions'],
         }, conflictAlgorithm: ConflictAlgorithm.replace);
@@ -198,13 +217,6 @@ class LocalLessonContentService {
         'updatedAt': now,
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     });
-  }
-
-  Future<List<Map<String, dynamic>>> getPracticesByLessonId(
-    String lessonId,
-  ) async {
-    final db = await _db;
-    return db.query('practices', where: 'lessonId = ?', whereArgs: [lessonId]);
   }
 
   Future<void> downloadLessonPackageFromFirestore({
@@ -269,6 +281,7 @@ class LocalLessonContentService {
               'quizId': quiz.quizId,
               'lessonId': quiz.lessonId,
               'title': quiz.title,
+              'titleHa': quiz.titleHa,
               'passingScore': quiz.passingScore,
               'totalQuestions': quiz.totalQuestions,
             },
@@ -279,22 +292,44 @@ class LocalLessonContentService {
   }
 
   Future<bool> isLessonPackageDownloaded(String lessonId) async {
-    final db = await _db;
+    final row = await getDownloadedLesson(lessonId);
+    if (row == null) return false;
 
-    final quizRows = await db.query(
-      'quizzes',
-      where: 'lessonId = ?',
-      whereArgs: [lessonId],
-      limit: 1,
-    );
+    final downloaded = (row['isDownloaded'] as int? ?? 0) == 1;
+    if (!downloaded) return false;
 
-    final practiceRows = await db.query(
-      'practices',
-      where: 'lessonId = ?',
-      whereArgs: [lessonId],
-      limit: 1,
-    );
+    final quiz = await getQuizByLessonId(lessonId);
+    final practices = await getPracticesByLessonId(lessonId);
 
-    return quizRows.isNotEmpty || practiceRows.isNotEmpty;
+    if (quiz == null) return false;
+    if (practices.isEmpty) return false;
+
+    final quizId = quiz['quizId'] as String?;
+    if (quizId == null || quizId.isEmpty) return false;
+
+    final questions = await getQuestionsByQuizId(quizId);
+    if (questions.isEmpty) return false;
+
+    return true;
+  }
+
+  Future<bool> hasCompleteLessonPackage(String lessonId) async {
+    final downloaded = await getDownloadedLesson(lessonId);
+    if (downloaded == null) return false;
+    if ((downloaded['isDownloaded'] as int? ?? 0) != 1) return false;
+
+    final quiz = await getQuizByLessonId(lessonId);
+    if (quiz == null) return false;
+
+    final quizId = quiz['quizId'] as String?;
+    if (quizId == null || quizId.isEmpty) return false;
+
+    final questions = await getQuestionsByQuizId(quizId);
+    if (questions.isEmpty) return false;
+
+    final practices = await getPracticesByLessonId(lessonId);
+    if (practices.isEmpty) return false;
+
+    return true;
   }
 }

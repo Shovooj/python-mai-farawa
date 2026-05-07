@@ -33,7 +33,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   final ProgressService _progressService = ProgressService();
   final LocalProgressService _localProgressService = LocalProgressService();
-  final ProgressSyncService _progressSyncService = ProgressSyncService();
+  final ProgressSyncService progressSyncService = ProgressSyncService();
   final LocalLessonContentService localLessonContentService =
       LocalLessonContentService();
   final FirestoreService firestoreService = FirestoreService();
@@ -69,6 +69,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           quizId: quiz.quizId,
           lessonId: quiz.lessonId,
           title: quiz.title,
+          titleHa: quiz.titleHa,
           passingScore: quiz.passingScore,
           totalQuestions: quiz.totalQuestions,
         );
@@ -285,20 +286,31 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     }
   }
 
-  Future<void> _openQuiz() async {
+  Future<void> openQuiz() async {
     try {
-      final isDownloaded = await localLessonContentService
-          .isLessonPackageDownloaded(widget.lesson.lessonId);
+      final hasPackage = await localLessonContentService
+          .hasCompleteLessonPackage(widget.lesson.lessonId);
 
-      if (!isDownloaded) {
+      if (!hasPackage) {
         await cacheLessonContentForOffline();
       }
 
-      if (!mounted) return;
+      final hasValidatedPackage = await localLessonContentService
+          .hasCompleteLessonPackage(widget.lesson.lessonId);
 
-      // Stop the listener NOW before any navigation happens
-      _videoController?.removeListener(videoListener);
-      _videoController?.pause();
+      if (!hasValidatedPackage) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Lesson content is not available yet. Please connect to the internet and download this lesson again.',
+            ),
+          ),
+        );
+        return;
+      }
+
+      if (!mounted) return;
 
       await Navigator.push(
         context,
@@ -307,31 +319,15 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
         ),
       );
 
-      // Re-attach only after returning
-      _videoController?.addListener(videoListener);
-
-      try {
-        await _progressService.refreshLocalProgressStream();
-      } catch (e) {
-        debugPrint('Progress stream refresh failed: $e');
-      }
-
-      try {
-        await _progressSyncService.syncPendingProgress();
-      } catch (e) {
-        debugPrint('Progress sync failed: $e');
-      }
+      await saveInitialLocalProgress();
+      await progressSyncService.syncPendingProgress();
 
       if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Lesson content is not available yet. Please connect to the internet or download this lesson from the lesson list.',
-          ),
-        ),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to open quiz: $e')));
     }
   }
 
@@ -490,7 +486,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
                       width: double.infinity,
                       height: 54,
                       child: ElevatedButton(
-                        onPressed: _openQuiz,
+                        onPressed: openQuiz,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF4CAF50),
                           foregroundColor: Colors.white,
