@@ -5,8 +5,8 @@ import '../models/lesson_model.dart';
 import '../models/progress_model.dart';
 import '../models/quiz_model.dart';
 import '../services/local_progress_service.dart';
-import '../services/progress_service.dart';
-import '../services/progress_sync_service.dart';
+//import '../services/progress_service.dart';
+//import '../services/progress_sync_service.dart';
 import '../services/sync_queue_service.dart';
 import 'lesson_header_tabs.dart';
 import 'practice_screen.dart';
@@ -61,79 +61,67 @@ class QuizResultScreen extends StatelessWidget {
   }
 
   Future<void> saveQuizProgressOfflineFirst(BuildContext context) async {
-    final uid = await getUid(context);
-
-    final localProgressService = LocalProgressService();
-    final progressSyncService = ProgressSyncService();
-    final progressService = ProgressService();
-    final syncQueueService = SyncQueueService();
-
-    final rows = await localProgressService.getUserLocalProgress(uid);
-
-    ProgressModel? existing;
     try {
-      existing = rows.firstWhere((item) => item.lessonId == lesson.lessonId);
-    } catch (_) {
-      existing = null;
-    }
+      final uid = await getUid(context);
+      final localProgressService = LocalProgressService();
+      final syncQueueService = SyncQueueService();
 
-    // Only update the quiz-specific fields locally and remotely. Do NOT
-    // compute or send lessonCompleted here — LocalProgressService is the
-    // single source of truth for merging and computing lessonCompleted.
-    const bool quizCompleted = true;
-    final int bestScore = score > (existing?.score ?? 0)
-        ? score
-        : (existing?.score ?? 0);
+      final rows = await localProgressService.getUserLocalProgress(uid);
 
-    final progressId = '${uid}_${lesson.lessonId}';
-
-    await localProgressService.saveLessonProgress(
-      progressId: progressId,
-      userId: uid,
-      lessonId: lesson.lessonId,
-      quizCompleted: quizCompleted,
-      score: bestScore,
-    );
-
-    await progressService.refreshLocalProgressStream();
-    final payload = {
-      'progressId': progressId,
-      'userId': uid,
-      'lessonId': lesson.lessonId,
-      'quizCompleted': 1,
-      'score': bestScore,
-      'updatedAt': DateTime.now().toIso8601String(),
-    };
-
-    await syncQueueService.addToQueue(
-      entityType: 'progress',
-      entityId: lesson.lessonId,
-      operation: 'upsert',
-      payload: payload,
-    );
-
-    if (await hasInternet()) {
+      ProgressModel? existing;
       try {
-        await progressService.syncFullLocalProgressToRemote(lesson.lessonId);
-        await progressSyncService.syncPendingProgress();
-      } catch (e) {
-        debugPrint('Remote quiz progress sync failed: $e');
+        existing = rows.firstWhere((item) => item.lessonId == lesson.lessonId);
+      } catch (_) {
+        existing = null;
       }
+
+      final bool quizCompleted = true;
+      final bool practiceCompleted = existing?.practiceCompleted ?? false;
+      final bool videoViewed = existing?.videoViewed ?? false;
+      final int bestScore = score > (existing?.score ?? 0)
+          ? score
+          : (existing?.score ?? 0);
+      final int videoPositionSeconds = existing?.videoPositionSeconds ?? 0;
+      final int videoDurationSeconds = existing?.videoDurationSeconds ?? 0;
+      final bool lessonCompleted =
+          quizCompleted && practiceCompleted && videoViewed;
+
+      final payload = {
+        'progressId': '${uid}_${lesson.lessonId}',
+        'userId': uid,
+        'lessonId': lesson.lessonId,
+        'lessonCompleted': lessonCompleted ? 1 : 0,
+        'practiceCompleted': practiceCompleted ? 1 : 0,
+        'quizCompleted': 1,
+        'videoViewed': videoViewed ? 1 : 0,
+        'score': bestScore,
+        'videoPositionSeconds': videoPositionSeconds,
+        'videoDurationSeconds': videoDurationSeconds,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      await localProgressService.saveLessonProgress(
+        progressId: payload['progressId'] as String,
+        userId: payload['userId'] as String,
+        lessonId: payload['lessonId'] as String,
+        practiceCompleted: practiceCompleted,
+        quizCompleted: quizCompleted,
+        videoViewed: videoViewed,
+        score: bestScore,
+        videoPositionSeconds: videoPositionSeconds,
+        videoDurationSeconds: videoDurationSeconds,
+      );
+
+      await syncQueueService.addToQueue(
+        entityType: 'progress',
+        entityId: lesson.lessonId,
+        operation: 'upsert',
+        payload: payload,
+      );
+    } catch (e) {
+      debugPrint('saveQuizProgressOfflineFirst failed: $e');
+      // Intentionally swallow: progress failure must not block navigation
     }
-
-    final saved = await localProgressService.getLocalProgressForLesson(
-      userId: uid,
-      lessonId: lesson.lessonId,
-    );
-
-    debugPrint(
-      'QUIZ RESULT SAVED -> '
-      'quizCompleted=${saved?.quizCompleted}, '
-      'practiceCompleted=${saved?.practiceCompleted}, '
-      'videoViewed=${saved?.videoViewed}, '
-      'lessonCompleted=${saved?.lessonCompleted}, '
-      'score=${saved?.score}',
-    );
   }
 
   @override
@@ -273,7 +261,7 @@ class QuizResultScreen extends StatelessWidget {
                             }
 
                             try {
-                              await Navigator.pushReplacement(
+                              await Navigator.push(
                                 context,
                                 MaterialPageRoute(
                                   builder: (_) => hasPassed
