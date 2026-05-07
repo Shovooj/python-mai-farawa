@@ -22,17 +22,33 @@ class ProgressService {
 
   String _progressDocId(String lessonId) => '${_uid}_$lessonId';
 
-  Future<void> refreshLocalProgressStream() async {
-    final rows = await _localProgressService.getUserLocalProgress(_uid);
-    if (!_progressController.isClosed) {
-      _progressController.add(rows);
-    }
+  final LocalProgressService localProgressService = LocalProgressService();
+
+  final StreamController<List<ProgressModel>> progressController =
+      StreamController<List<ProgressModel>>.broadcast();
+
+  String get uid {
+    final user = _auth.currentUser;
+    if (user == null) throw Exception('No signed-in user found.');
+    return user.uid;
   }
 
   Stream<List<ProgressModel>> getUserProgressStream() async* {
     final initialRows = await _localProgressService.getUserLocalProgress(_uid);
     yield initialRows;
     yield* _progressController.stream;
+  }
+
+  Future<void> refreshLocalProgress() async {
+    final rows = await _localProgressService.getUserLocalProgress(_uid);
+    _progressController.add(rows);
+  }
+
+  Future<void> refreshLocalProgressStream() async {
+    final rows = await _localProgressService.getUserLocalProgress(_uid);
+    if (!_progressController.isClosed) {
+      _progressController.add(rows);
+    }
   }
 
   Future<List<ProgressModel>> getUserProgressOnce() async {

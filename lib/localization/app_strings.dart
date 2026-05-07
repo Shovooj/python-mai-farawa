@@ -201,7 +201,7 @@ class AppStrings {
       'loginSuccessful': 'Shiga ya yi nasara.',
       'welcomeBack': 'Barka da dawowa!',
       'loginSubtitle': 'Shiga don ci gaba da koyo',
-      'continueWith': 'Ci gaba da',
+      'continueWith': 'Ci gaba da ',
       'google': 'Google',
       'continueWithApple': 'Ci gaba da Apple',
       'or': 'or',

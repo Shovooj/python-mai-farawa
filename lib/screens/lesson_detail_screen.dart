@@ -144,6 +144,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
     );
 
     await _progressService.refreshLocalProgressStream();
+    await _progressService.refreshLocalProgress();
   }
 
   Future<ProgressModel?> _getExistingLocalProgress(String uid) async {
@@ -177,8 +178,9 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
 
   Future<void> saveVideoProgress({bool forceComplete = false}) async {
     if (_isSavingVideoProgress) return;
-    if (_videoController == null || !_videoController!.value.isInitialized)
+    if (_videoController == null || !_videoController!.value.isInitialized) {
       return;
+    }
 
     _isSavingVideoProgress = true;
 
@@ -289,14 +291,20 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   Future<void> openQuiz() async {
     try {
       final hasPackage = await localLessonContentService
-          .hasCompleteLessonPackage(widget.lesson.lessonId);
+          .hasCompleteLessonPackage(
+            userId: getUid(),
+            lessonId: widget.lesson.lessonId,
+          );
 
       if (!hasPackage) {
         await cacheLessonContentForOffline();
       }
 
       final hasValidatedPackage = await localLessonContentService
-          .hasCompleteLessonPackage(widget.lesson.lessonId);
+          .hasCompleteLessonPackage(
+            userId: getUid(),
+            lessonId: widget.lesson.lessonId,
+          );
 
       if (!hasValidatedPackage) {
         if (!mounted) return;

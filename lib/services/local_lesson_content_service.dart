@@ -106,15 +106,20 @@ class LocalLessonContentService {
   }
 
   Future<void> markLessonAsDownloaded({
+    required String userId,
     required String lessonId,
     required bool isDownloaded,
     required bool videoDownloaded,
   }) async {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
-    final existing = await getDownloadedLesson(lessonId);
+    final existing = await getDownloadedLesson(
+      userId: userId,
+      lessonId: lessonId,
+    );
 
     await db.insert('downloaded_lessons', {
+      'userId': userId,
       'lessonId': lessonId,
       'isDownloaded': isDownloaded ? 1 : 0,
       'videoDownloaded': videoDownloaded ? 1 : 0,
@@ -123,12 +128,15 @@ class LocalLessonContentService {
     }, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  Future<Map<String, dynamic>?> getDownloadedLesson(String lessonId) async {
+  Future<Map<String, dynamic>?> getDownloadedLesson({
+    required String userId,
+    required String lessonId,
+  }) async {
     final db = await _db;
     final result = await db.query(
       'downloaded_lessons',
-      where: 'lessonId = ?',
-      whereArgs: [lessonId],
+      where: 'userId = ? AND lessonId = ?',
+      whereArgs: [userId, lessonId],
       limit: 1,
     );
 
@@ -136,21 +144,29 @@ class LocalLessonContentService {
     return result.first;
   }
 
-  Future<bool> isLessonDownloaded(String lessonId) async {
-    final row = await getDownloadedLesson(lessonId);
+  Future<bool> isLessonDownloaded({
+    required String userId,
+    required String lessonId,
+  }) async {
+    final row = await getDownloadedLesson(userId: userId, lessonId: lessonId);
     if (row == null) return false;
     return (row['isDownloaded'] as int? ?? 0) == 1;
   }
 
   Future<void> updateDownloadedLessonVideoStatus({
+    required String userId,
     required String lessonId,
     required bool videoDownloaded,
   }) async {
     final db = await _db;
-    final existing = await getDownloadedLesson(lessonId);
+    final existing = await getDownloadedLesson(
+      userId: userId,
+      lessonId: lessonId,
+    );
     final now = DateTime.now().toIso8601String();
 
     await db.insert('downloaded_lessons', {
+      'userId': userId,
       'lessonId': lessonId,
       'isDownloaded': (existing?['isDownloaded'] as int? ?? 0),
       'videoDownloaded': videoDownloaded ? 1 : 0,
@@ -160,6 +176,7 @@ class LocalLessonContentService {
   }
 
   Future<void> saveFullLessonPackage({
+    required String userId,
     required String lessonId,
     required Map<String, dynamic>? quiz,
     required List<Map<String, dynamic>> questions,
@@ -210,6 +227,7 @@ class LocalLessonContentService {
       }
 
       await txn.insert('downloaded_lessons', {
+        'userId': userId,
         'lessonId': lessonId,
         'isDownloaded': 1,
         'videoDownloaded': videoDownloaded ? 1 : 0,
@@ -220,6 +238,7 @@ class LocalLessonContentService {
   }
 
   Future<void> downloadLessonPackageFromFirestore({
+    required String userId,
     required String lessonId,
   }) async {
     final quiz = await _firestoreService.getQuizByLessonId(lessonId);
@@ -274,6 +293,7 @@ class LocalLessonContentService {
         .toList();
 
     await saveFullLessonPackage(
+      userId: userId,
       lessonId: lessonId,
       quiz: quiz == null
           ? null
@@ -291,8 +311,11 @@ class LocalLessonContentService {
     );
   }
 
-  Future<bool> isLessonPackageDownloaded(String lessonId) async {
-    final row = await getDownloadedLesson(lessonId);
+  Future<bool> isLessonPackageDownloaded({
+    required String userId,
+    required String lessonId,
+  }) async {
+    final row = await getDownloadedLesson(userId: userId, lessonId: lessonId);
     if (row == null) return false;
 
     final downloaded = (row['isDownloaded'] as int? ?? 0) == 1;
@@ -313,8 +336,14 @@ class LocalLessonContentService {
     return true;
   }
 
-  Future<bool> hasCompleteLessonPackage(String lessonId) async {
-    final downloaded = await getDownloadedLesson(lessonId);
+  Future<bool> hasCompleteLessonPackage({
+    required String userId,
+    required String lessonId,
+  }) async {
+    final downloaded = await getDownloadedLesson(
+      userId: userId,
+      lessonId: lessonId,
+    );
     if (downloaded == null) return false;
     if ((downloaded['isDownloaded'] as int? ?? 0) != 1) return false;
 

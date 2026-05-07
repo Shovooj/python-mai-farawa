@@ -11,6 +11,7 @@ import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
 import '../services/local_lesson_content_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -20,6 +21,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  String getUid() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No signed-in user found.');
+    }
+    return user.uid;
+  }
+
   final LocalLessonContentService _localLessonContentService =
       LocalLessonContentService();
 
@@ -164,6 +173,7 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             );
           }
+          final uid = getUid();
 
           return StreamBuilder<List<ProgressModel>>(
             stream: _progressService.getUserProgressStream(),
@@ -421,12 +431,14 @@ class _HomeScreenState extends State<HomeScreen> {
                                                 ),
                                               ],
                                             ),
+
                                             Align(
                                               alignment: Alignment.bottomRight,
                                               child: FutureBuilder<bool>(
                                                 future: _localLessonContentService
                                                     .isLessonPackageDownloaded(
-                                                      lesson.lessonId,
+                                                      userId: uid,
+                                                      lessonId: lesson.lessonId,
                                                     ),
                                                 builder: (context, snapshot) {
                                                   final isDownloaded =

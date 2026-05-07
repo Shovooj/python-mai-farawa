@@ -19,7 +19,7 @@ class DatabaseHelper {
 
     return await openDatabase(
       path,
-      version: 11,
+      version: 12,
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -121,6 +121,10 @@ class DatabaseHelper {
 
     if (oldVersion < 11) {
       await db.execute('ALTER TABLE quizzes ADD COLUMN titleHa TEXT');
+    }
+
+    if (oldVersion < 12) {
+      await db.execute('ALTER TABLE downloaded_lessons ADD COLUMN userId TEXT');
     }
   }
 
@@ -231,11 +235,13 @@ class DatabaseHelper {
 
     await db.execute('''
       CREATE TABLE downloaded_lessons (
-        lessonId TEXT PRIMARY KEY,
+        userId TEXT NOT NULL,
+        lessonId TEXT NOT NULL,
         isDownloaded INTEGER NOT NULL DEFAULT 0,
         videoDownloaded INTEGER NOT NULL DEFAULT 0,
         downloadedAt TEXT,
-        updatedAt TEXT
+        updatedAt TEXT,
+        PRIMARY KEY (userId, lessonId)
       )
     ''');
   }

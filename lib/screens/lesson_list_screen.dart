@@ -10,6 +10,7 @@ import '../services/progress_service.dart';
 import '../services/local_lesson_content_service.dart';
 import '../services/firestore_service.dart';
 import '../services/local_video_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
@@ -19,6 +20,14 @@ class LessonListScreen extends StatefulWidget {
 }
 
 class _LessonListScreenState extends State<LessonListScreen> {
+  String getUid() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      throw Exception('No signed-in user found.');
+    }
+    return user.uid;
+  }
+
   late Future<List<Lesson>> _lessonsFuture;
 
   final LocalVideoService localVideoService = LocalVideoService();
@@ -110,6 +119,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
 
     try {
       await _localLessonContentService.downloadLessonPackageFromFirestore(
+        userId: getUid(),
         lessonId: lesson.lessonId,
       );
 
@@ -272,6 +282,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
                         return previousProgress?.lessonCompleted == true;
                       }
 
+                      final uid = getUid();
                       return ListView.separated(
                         itemCount: lessons.length,
                         separatorBuilder: (context, index) =>
@@ -339,7 +350,8 @@ class _LessonListScreenState extends State<LessonListScreen> {
                                       FutureBuilder<bool>(
                                         future: _localLessonContentService
                                             .isLessonPackageDownloaded(
-                                              lesson.lessonId,
+                                              userId: uid,
+                                              lessonId: lesson.lessonId,
                                             ),
                                         key: ValueKey(
                                           '${lesson.lessonId}_$_downloadStatusVersion',

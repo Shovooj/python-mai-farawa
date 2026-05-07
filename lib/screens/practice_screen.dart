@@ -171,9 +171,13 @@ class _PracticeScreenState extends State<PracticeScreen> {
   }
 
   Future<List<PracticeModel>> loadPractices() async {
+    final uid = await getUid();
     try {
       final isDownloaded = await localLessonContentService
-          .isLessonPackageDownloaded(widget.lesson.lessonId);
+          .isLessonPackageDownloaded(
+            userId: uid,
+            lessonId: widget.lesson.lessonId,
+          );
 
       debugPrint(
         'PRACTICE LOAD -> lessonId=${widget.lesson.lessonId}, isDownloaded=$isDownloaded',
@@ -387,6 +391,7 @@ class _PracticeScreenState extends State<PracticeScreen> {
     );
 
     await progressService.refreshLocalProgressStream();
+    await progressService.refreshLocalProgress();
 
     final saved = await localProgressService.getLocalProgressForLesson(
       userId: uid,
