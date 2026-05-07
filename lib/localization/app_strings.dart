@@ -91,6 +91,12 @@ class AppStrings {
       'translateAllQuizzesToHausa': 'Translate all quizzes to Hausa',
       'translateAllQuestionsToHausa': 'Translate all questions to Hausa',
       'translateAllPracticesToHausa': 'Translate all practices to Hausa',
+      'confirmPasswordTitle': 'Confirm your password',
+      'confirmPasswordMessage':
+          'For security, please enter your password to delete your account.',
+      'confirm': 'Confirm',
+      'wrongPassword': 'The password you entered is incorrect.',
+      'deleteCancelled': 'Account deletion was cancelled.',
 
       // Lesson List Screen
       'findALesson': 'Find a lesson',
@@ -278,6 +284,12 @@ class AppStrings {
       'translateAllQuizzesToHausa': 'Fassara dukkan gwaje-gwaje zuwa Hausa',
       'translateAllQuestionsToHausa': 'Translate all questions to Hausa',
       'translateAllPracticesToHausa': 'Translate all practices to Hausa',
+      'confirmPasswordTitle': 'Confirm your password',
+      'confirmPasswordMessage':
+          'For security, please enter your password to delete your account.',
+      'confirm': 'Confirm',
+      'wrongPassword': 'The password you entered is incorrect.',
+      'deleteCancelled': 'Account deletion was cancelled.',
 
       // Lesson List Screen
       'findALesson': 'Find a lesson',

@@ -8,6 +8,9 @@ import '../services/question_translation_service.dart';
 import '../services/practice_translation_service.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'signup_screen.dart';
+import 'login_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +20,22 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  final GoogleSignIn _googleSignIn = GoogleSignIn();
+
+  Future<void> clearGoogleSession() async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {}
+
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {}
+  }
+
   User? _currentUser;
 
   String lang = 'ha';
@@ -225,6 +244,34 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  Future<void> _reauthenticateWithGoogle(User user) async {
+    try {
+      await _googleSignIn.signOut();
+    } catch (_) {}
+
+    try {
+      await _googleSignIn.disconnect();
+    } catch (_) {}
+
+    final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
+
+    if (googleUser == null) {
+      throw FirebaseAuthException(
+        code: 'reauth-cancelled',
+        message: 'Google reauthentication was cancelled.',
+      );
+    }
+
+    final googleAuth = await googleUser.authentication;
+
+    final credential = GoogleAuthProvider.credential(
+      accessToken: googleAuth.accessToken,
+      idToken: googleAuth.idToken,
+    );
+
+    await user.reauthenticateWithCredential(credential);
+  }
+
   Future<void> _showLanguageDialog() async {
     await showDialog<void>(
       context: context,
@@ -315,10 +362,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ElevatedButton(
               onPressed: () async {
                 Navigator.pop(dialogContext);
-                await FirebaseAuth.instance.signOut();
+                await clearGoogleSession();
 
                 if (!mounted) return;
-                Navigator.pop(context, true);
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  (route) => false,
+                );
               },
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFFFF453A),
@@ -330,6 +380,190 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       },
     );
+  }
+
+  Future<String?> _showReauthPasswordDialog() async {
+    final controller = TextEditingController();
+
+    final password = await showDialog<String>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          title: Text(
+            AppStrings.text(lang, 'confirmPasswordTitle'),
+            style: const TextStyle(fontWeight: FontWeight.w700),
+          ),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                AppStrings.text(lang, 'confirmPasswordMessage'),
+                style: const TextStyle(fontSize: 14, height: 1.4),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                controller: controller,
+                obscureText: true,
+                autofocus: true,
+                decoration: InputDecoration(
+                  labelText: AppStrings.text(lang, 'password'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: Text(AppStrings.text(lang, 'cancel')),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(dialogContext, controller.text.trim());
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF2D8CE0),
+                foregroundColor: Colors.white,
+              ),
+              child: Text(AppStrings.text(lang, 'confirm')),
+            ),
+          ],
+        );
+      },
+    );
+
+    controller.dispose();
+    return password;
+  }
+
+  Future<void> reauthenticateUser(User user) async {
+    final providerIds = user.providerData.map((e) => e.providerId).toList();
+
+    if (providerIds.contains('google.com')) {
+      await _reauthenticateWithGoogle(user);
+      return;
+    }
+
+    if (providerIds.contains('password')) {
+      final password = await _showReauthPasswordDialog();
+
+      if (password == null || password.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'reauth-cancelled',
+          message: 'User cancelled reauthentication.',
+        );
+      }
+
+      final email = user.email;
+      if (email == null || email.isEmpty) {
+        throw FirebaseAuthException(
+          code: 'missing-email',
+          message: 'No email found for reauthentication.',
+        );
+      }
+
+      final credential = EmailAuthProvider.credential(
+        email: email,
+        password: password,
+      );
+
+      await user.reauthenticateWithCredential(credential);
+      return;
+    }
+
+    throw FirebaseAuthException(
+      code: 'unsupported-provider',
+      message: 'Unsupported sign-in provider for reauthentication.',
+    );
+  }
+
+  Future<void> _deleteUserData(String uid) async {
+    final firestore = FirebaseFirestore.instance;
+    final batch = firestore.batch();
+
+    batch.delete(firestore.collection('users').doc(uid));
+
+    final progressSnapshot = await firestore
+        .collection('progress')
+        .where('userId', isEqualTo: uid)
+        .get();
+
+    for (final doc in progressSnapshot.docs) {
+      batch.delete(doc.reference);
+    }
+
+    await batch.commit();
+  }
+
+  Future<void> _deleteAccount() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    setState(() {
+      _isDeletingAccount = true;
+    });
+
+    try {
+      await reauthenticateUser(user);
+
+      final uid = user.uid;
+
+      await _deleteUserData(uid);
+      await user.delete();
+      await clearGoogleSession();
+
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'accountDeletedSuccessfully')),
+          backgroundColor: const Color(0xFF2D8CE0),
+        ),
+      );
+
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => const SignUpScreen()),
+        (route) => false,
+      );
+    } on FirebaseAuthException catch (e) {
+      if (!mounted) return;
+
+      String message;
+      if (e.code == 'requires-recent-login') {
+        message = AppStrings.text(lang, 'requiresRecentLogin');
+      } else if (e.code == 'wrong-password' || e.code == 'invalid-credential') {
+        message = AppStrings.text(lang, 'requiresRecentLogin');
+      } else if (e.code == 'reauth-cancelled') {
+        message = AppStrings.text(lang, 'deleteCancelled');
+      } else {
+        message = AppStrings.text(lang, 'failedToDeleteAccount');
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: const Color(0xFFE53935),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppStrings.text(lang, 'unexpectedDeleteError')),
+          backgroundColor: const Color(0xFFE53935),
+        ),
+      );
+    } finally {
+      if (!mounted) return;
+      setState(() {
+        _isDeletingAccount = false;
+      });
+    }
   }
 
   Future<void> _confirmDeleteAccount() async {
@@ -366,64 +600,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (shouldDelete != true) return;
 
     await _deleteAccount();
-  }
-
-  Future<void> _deleteAccount() async {
-    final user = FirebaseAuth.instance.currentUser;
-
-    if (user == null) return;
-
-    setState(() {
-      _isDeletingAccount = true;
-    });
-
-    try {
-      await FirebaseFirestore.instance
-          .collection('users')
-          .doc(user.uid)
-          .delete();
-      await user.delete();
-
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppStrings.text(lang, 'accountDeletedSuccessfully')),
-          backgroundColor: const Color(0xFF2D8CE0),
-        ),
-      );
-
-      Navigator.pop(context, true);
-    } on FirebaseAuthException catch (e) {
-      if (!mounted) return;
-
-      String message = AppStrings.text(lang, 'failedToDeleteAccount');
-
-      if (e.code == 'requires-recent-login') {
-        message = AppStrings.text(lang, 'requiresRecentLogin');
-      }
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xFFE53935),
-        ),
-      );
-    } catch (e) {
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(AppStrings.text(lang, 'unexpectedDeleteError')),
-          backgroundColor: const Color(0xFFE53935),
-        ),
-      );
-    } finally {
-      if (!mounted) return;
-      setState(() {
-        _isDeletingAccount = false;
-      });
-    }
   }
 
   @override
