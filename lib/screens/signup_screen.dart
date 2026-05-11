@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import 'home_screen.dart';
 
 // This screen allows a new user to create an account.
 class SignUpScreen extends StatefulWidget {
@@ -79,6 +80,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
       nameController.clear();
       emailController.clear();
       passwordController.clear();
+      // Navigate directly to HomeScreen and remove auth screens from stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
     } else {
       // If there is an error message, show it to the user.
       ScaffoldMessenger.of(
@@ -112,6 +119,11 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
       // No manual navigation here.
       // AuthGate should move the user automatically.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
     } else {
       messenger.showSnackBar(SnackBar(content: Text(result)));
     }

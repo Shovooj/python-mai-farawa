@@ -4,6 +4,8 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 // This service handles all authentication actions for the app.
 // It also saves basic user information to Cloud Firestore after sign-up.
+// Authentication-related helpers wrapping Firebase Auth calls.
+// Keeps auth code separate from UI logic.
 class AuthService {
   // This gives access to Firebase Authentication.
   final FirebaseAuth _auth = FirebaseAuth.instance;

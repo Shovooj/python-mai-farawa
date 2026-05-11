@@ -1,5 +1,7 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+// Simple wrapper around SharedPreferences for reading and writing the
+// currently selected app language.
 class LanguageService {
   static const String _languageKey = 'selected_language';
 

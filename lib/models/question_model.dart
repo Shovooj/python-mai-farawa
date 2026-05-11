@@ -1,3 +1,5 @@
+// Model representing a single quiz question with options in English and Hausa.
+// Use the `*ForLang` helpers to fetch language-appropriate text with fallbacks.
 class QuestionModel {
   final String questionId;
   final String quizId;

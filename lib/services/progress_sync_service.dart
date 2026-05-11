@@ -3,6 +3,11 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'sync_queue_service.dart';
 
+// Syncs local progress records from the sync queue to Firestore.
+// Behavior:
+// - Reads pending items from `sync_queue` and writes them to Firestore.
+// - Uses a composite doc id `${uid}_${lessonId}` matching the server schema.
+// - Marks queue items done after successful upload.
 class ProgressSyncService {
   final SyncQueueService _syncQueueService = SyncQueueService();
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -44,6 +49,7 @@ class ProgressSyncService {
         'updatedAt': payload['updatedAt'],
       }, SetOptions(merge: true));
 
+      // Mark the item as done so it won't be retried.
       await _syncQueueService.markQueueItemDone(queueId);
     }
   }

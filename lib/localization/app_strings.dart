@@ -1,4 +1,7 @@
+// Centralized string resources for the app.
+// Stores translations for supported languages and provides a lookup helper.
 class AppStrings {
+  // Map: language code -> (key -> translated string)
   static const Map<String, Map<String, String>> values = {
     'en': {
       'appTitle': 'Python Mai Farawa',
@@ -97,11 +100,21 @@ class AppStrings {
       'confirm': 'Confirm',
       'wrongPassword': 'The password you entered is incorrect.',
       'deleteCancelled': 'Account deletion was cancelled.',
+      'lessonTranslationToHausaCompleted':
+          'Lesson translation to Hausa completed.',
+      'translationFailed': 'Translation failed: ',
+      'questionsTranslationToHausaCompleted':
+          'Questions translation to Hausa completed.',
+      'practicesTranslationToHausaCompleted':
+          'Practices translation to Hausa completed.',
+      'quizTranslationToHausaCompleted': 'Quiz translation to Hausa completed.',
 
       // Lesson List Screen
       'findALesson': 'Find a lesson',
       'allLessons': 'All lessons',
       'noLessonsFound': 'No lessons found.',
+      'downloadedForOfflineUse': ' downloaded for offline use.',
+      'failedToDownload': 'Failed to download ',
 
       // Progress Screen
       'completedLessons': 'Completed Lessons',
@@ -130,6 +143,9 @@ class AppStrings {
       'startQuiz': 'Start Quiz',
       'videoDownloadedOfflineLabel': 'Video Downloaded for Offline Use',
       'downloadVideoOfflineLabel': 'Download Video for Offline Use',
+      'lessonContentNotAvailable':
+          'Lesson content is not available yet. Please connect to the internet and download this lesson again.',
+      'failedToOpenQuiz': 'Failed to open quiz:',
 
       // Quiz Screen
       'errorLoadingQuiz': 'Error loading quiz: ',
@@ -151,6 +167,8 @@ class AppStrings {
       'passMark': 'Pass mark',
       'moveToPractice': 'Move to Practice',
       'tryAgain': 'Try Again',
+      'practiceContentNotAvailable':
+          'Practice content is not available offline for this lesson yet. Please re-download this lesson while online.',
 
       // Practice Screen
       'resultingCodeWillAppearHere': 'The resulting code will appear here.',
@@ -175,7 +193,7 @@ class AppStrings {
           'Could not open the next lesson offline yet. Please reconnect once to cache the next lesson.',
       'writePythonCodeHere': 'Write Python code here...',
       'output': 'Output',
-      'expectedOutputPrefix': 'Expected output: ',
+      'expectedOutputPrefix': 'Expected output',
       'clearCode': 'Clear Code',
       'resetCode': 'Reset Code',
       'runCode': 'Run Code',
@@ -204,7 +222,7 @@ class AppStrings {
       'continueWith': 'Ci gaba da ',
       'google': 'Google',
       'continueWithApple': 'Ci gaba da Apple',
-      'or': 'or',
+      'or': 'ko',
       'enterEmail': 'Da fatan a shigar da imel ɗinka',
       'enterPassword': 'Da fatan a shigar da kalmar sirrinku',
       'logIn': 'Shiga',
@@ -275,32 +293,44 @@ class AppStrings {
       'deleteAccount': 'goge asusu',
 
       'accountDeletedSuccessfully': 'An goge asusu cikin nasara',
-      'failedToDeleteAccount': 'Failed to delete account. Please try again.',
+      'failedToDeleteAccount':
+          'An kasa share asusun. Da fatan za a sake gwadawa.',
       'requiresRecentLogin':
-          'For security reasons, please log out, log in again, then try deleting your account.',
+          'Don dalilai na tsaro, da fatan za a fita, sake shiga, sannan gwada share asusunku.',
       'unexpectedDeleteError':
           'An sami kuskuren da ba a zata ba yayin share asusun.',
-      'translateAllLessonsToHausa': 'Translate all lessons to Hausa',
+      'translateAllLessonsToHausa': 'Fassara dukkan darussa zuwa Hausa',
       'translateAllQuizzesToHausa': 'Fassara dukkan gwaje-gwaje zuwa Hausa',
-      'translateAllQuestionsToHausa': 'Translate all questions to Hausa',
-      'translateAllPracticesToHausa': 'Translate all practices to Hausa',
-      'confirmPasswordTitle': 'Confirm your password',
+      'translateAllQuestionsToHausa': 'Fassara duk tambayoyi zuwa Hausa',
+      'translateAllPracticesToHausa': 'Fassara duk ayyuka zuwa Hausa',
+      'confirmPasswordTitle': 'Tabbatar da kalmar sirrinku',
       'confirmPasswordMessage':
-          'For security, please enter your password to delete your account.',
-      'confirm': 'Confirm',
-      'wrongPassword': 'The password you entered is incorrect.',
-      'deleteCancelled': 'Account deletion was cancelled.',
+          'Don tsaro, da fatan za a shigar da kalmar wucewa don share asusun ku.',
+      'confirm': 'Tabbatar',
+      'wrongPassword': 'Kalmar sirri da kuka shigar ba daidai ba ne.',
+      'deleteCancelled': 'An soke share asusun.',
+      'lessonTranslationToHausaCompleted':
+          'An kammala fassarar darasi zuwa Hausa.',
+      'translationFailed': 'Fassarar ta kasa: ',
+      'questionsTranslationToHausaCompleted':
+          'An kammala fassarar Tambayoyi zuwa Hausa',
+      'practicesTranslationToHausaCompleted':
+          'An gama fassarar ɗawainiya zuwa Hausa',
+      'quizTranslationToHausaCompleted':
+          'An kammala fassarar Tambayoyi zuwa Hausa',
 
       // Lesson List Screen
-      'findALesson': 'Find a lesson',
+      'findALesson': 'Nemo darasi',
       'allLessons': 'Duk darussa',
       'noLessonsFound': 'Ba a sami darussa ba.',
+      'downloadedForOfflineUse': ' downloaded for offline use.',
+      'failedToDownload': 'An kasa saukewa ',
 
       // Progress Screen
       'completedLessons': 'Darussa da aka kammala',
       'totalLessons': 'Jimlar Darussa',
       'totalProgress': 'Jimlar Ci gaba',
-      'videoTime': 'Video Time',
+      'videoTime': 'Lokacin Bidiyo',
       'min': 'min',
       'ofCoursesCompleted': ' na darussan da aka kammala',
       'noProgressYet': 'Babu ci gaba tukuna. Fara darasi don ganin ci gabanka.',
@@ -326,6 +356,9 @@ class AppStrings {
           'An Sauke Bidiyo Don Amfani Ba Tare da Intanet Ba',
       'downloadVideoOfflineLabel':
           'Sauke Bidiyo don Amfani ba tare da Intanet ba',
+      'lessonContentNotAvailable':
+          'Ba a samu abun cikin darasi ba tukuna. Da fatan za a haɗa zuwa intanit kuma ku sake sauke wannan darasi.',
+      'failedToOpenQuiz': 'An kasa buɗe tambayoyin:',
 
       // Quiz Screen
       'errorLoadingQuiz': 'Kuskuren loda tambayoyin: ',
@@ -348,6 +381,8 @@ class AppStrings {
       'passMark': 'Alamar wucewa',
       'moveToPractice': 'Matsar zuwa Aiki',
       'tryAgain': 'Gwada kuma',
+      'practiceContentNotAvailable':
+          'Har yanzu ba a samu abun cikin aikin layi na wannan darasi ba. Babu wani abun ciki na yin layi na kan layi don wannan darasi har yanzu. Da fatan za a sake sauke wannan darasi idan yana kan layi.',
 
       // Practice Screen
       'resultingCodeWillAppearHere': 'Lambar da ta haifar za ta bayyana a nan.',
@@ -373,9 +408,9 @@ class AppStrings {
           'Ban iya buɗe darasin na gaba ba tukuna. Da fatan za a sake haɗawa sau ɗaya don adana darasin na gaba.',
       'writePythonCodeHere': 'Rubuta lambar Python a nan...',
       'output': 'Fitarwa',
-      'expectedOutputPrefix': 'Fitarwa da ake tsammani: ',
+      'expectedOutputPrefix': 'Fitarwa da ake tsammani',
       'clearCode': 'Share Lambar',
-      'resetCode': 'Reset Code',
+      'resetCode': 'Sake saita Lambar',
       'runCode': 'Sake saita Lambar',
       'practiceCompleted': 'Aikin gwaji an kammala',
       'markPracticeCompleted': 'Alamar Aikin Gwaji An Kammala',
@@ -388,10 +423,12 @@ class AppStrings {
           'Ba a sami aikin gwaji ba don wannan darasin.',
 
       //lesson completion
-      'lessonAlreadyCompleted': 'You already completed this lesson.',
+      'lessonAlreadyCompleted': 'Kun gama wannan darasi.',
     },
   };
 
+  // Returns the localized string for `key` in `lang`.
+  // Falls back to English if the requested language or key is missing.
   static String text(String lang, String key) {
     return values[lang]?[key] ?? values['en']![key]!;
   }

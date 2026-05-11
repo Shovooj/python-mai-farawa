@@ -1,8 +1,12 @@
+// Small header tabs used on the lesson detail screen to switch between
+// Video / Quiz / Practice labels. Purely presentational.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
 import '../localization/app_strings.dart';
 
+/// Simple presentational widget that displays three header tabs: Video,
+/// Quiz, and Practice. The currently active tab is highlighted.
 class LessonHeaderTabs extends StatelessWidget {
   final String activeTab;
 

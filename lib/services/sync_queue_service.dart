@@ -1,6 +1,11 @@
 import 'dart:convert';
 import 'database_helper.dart';
 
+// Simple sync queue stored in SQLite. Records operations that need to be
+// retried/synced to the server when the device is online.
+// Each row contains an entity type (e.g., 'progress'), an operation, a JSON
+// payload and a status ('pending' or 'done'). The queue is read FIFO by
+// ordering on `createdAt`.
 class SyncQueueService {
   Future<void> addToQueue({
     required String entityType,
@@ -31,6 +36,7 @@ class SyncQueueService {
     );
   }
 
+  // Mark an item done after successful sync/upload.
   Future<void> markQueueItemDone(int id) async {
     final db = await DatabaseHelper.instance.database;
 

@@ -1,3 +1,5 @@
+// Model for practice tasks/exercises tied to lessons. Includes both
+// English and Hausa fields and helper methods to pick the correct text.
 class PracticeModel {
   final String practiceId;
   final String lessonId;

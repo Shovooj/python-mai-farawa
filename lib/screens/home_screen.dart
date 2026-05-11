@@ -1,3 +1,7 @@
+// Home screen: shows overall progress, featured lesson to continue, and a grid
+// of lessons. Uses `ProgressService` stream to display up-to-date local progress
+// and falls back to Firestore for lesson data. This file contains only UI code
+// and navigation helpers — no direct data mutations are performed here.
 import 'package:flutter/material.dart';
 import '../models/lesson_model.dart';
 import '../models/progress_model.dart';
@@ -13,6 +17,12 @@ import '../language_provider.dart';
 import '../services/local_lesson_content_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Main landing page after sign-in.
+///
+/// Responsibilities:
+/// - Display user's overall completion progress.
+/// - Let the user continue the last unlocked lesson.
+/// - Navigate to lesson list, progress, and settings screens.
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 

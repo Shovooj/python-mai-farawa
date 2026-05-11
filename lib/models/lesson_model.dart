@@ -1,3 +1,5 @@
+// Represents a lesson with English and Hausa fields and helper accessors.
+// Use `titleForLang` and `descriptionForLang` to get language-aware text.
 class Lesson {
   final String lessonId;
   final int lessonNumber;

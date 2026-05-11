@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
 import 'google_translate_service.dart';
 
+// Translates question text and options to Hausa when missing. Each field is
+// checked individually so existing translations aren't overwritten.
 class QuestionTranslationService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 

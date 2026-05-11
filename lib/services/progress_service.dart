@@ -4,6 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import '../models/progress_model.dart';
 import 'local_progress_service.dart';
 
+// High-level progress manager that uses local progress storage first and
+// syncs to Firestore to keep server-side state up-to-date.
+// Streams local progress updates so UI can react immediately.
 class ProgressService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
@@ -33,6 +36,8 @@ class ProgressService {
     return user.uid;
   }
 
+  // Returns a stream that first emits the current local progress snapshot and
+  // then any subsequent updates pushed to `_progressController`.
   Stream<List<ProgressModel>> getUserProgressStream() async* {
     final initialRows = await _localProgressService.getUserLocalProgress(_uid);
     yield initialRows;
@@ -62,6 +67,7 @@ class ProgressService {
     );
   }
 
+  // Pushes the full local progress record for a lesson to Firestore.
   Future<void> syncFullLocalProgressToRemote(String lessonId) async {
     final local = await _localProgressService.getLocalProgressForLesson(
       userId: _uid,

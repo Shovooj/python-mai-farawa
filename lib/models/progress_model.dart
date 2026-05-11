@@ -1,3 +1,14 @@
+// ProgressModel: represents a learner's progress for a single lesson.
+//
+// Fields summary for beginners:
+// - progressId: unique id (combination of user and lesson ids in this app)
+// - lessonCompleted / practiceCompleted / quizCompleted / videoViewed: flags
+// - score: best quiz score observed
+// - videoPositionSeconds / videoDurationSeconds: last saved playback state
+//
+// This model includes helpers to convert loosely-typed database values
+// (int/ String/ bool) into proper Dart types and toMap/fromMap helpers used
+// when reading from or writing to the local DB / Firestore.
 class ProgressModel {
   final String progressId;
   final String userId;

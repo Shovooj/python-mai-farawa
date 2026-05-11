@@ -1,6 +1,12 @@
 import 'package:path/path.dart';
 import 'package:sqflite/sqflite.dart';
 
+// Local SQLite database helper.
+// Responsible for DB creation and schema migrations. Important tables:
+// - `local_progress`: stores progress locally for offline-first behavior.
+// - `sync_queue`: stores pending operations to sync with remote firestore.
+// - `downloaded_lessons`: tracks lessons and offline video download status.
+// Migrations are applied in `_upgradeDB` based on the oldVersion value.
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
@@ -26,6 +32,7 @@ class DatabaseHelper {
   }
 
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    // Apply incremental schema changes when upgrading from older versions.
     if (oldVersion < 2) {
       await db.execute('''
       CREATE TABLE IF NOT EXISTS quizzes(
@@ -129,6 +136,8 @@ class DatabaseHelper {
   }
 
   Future<void> _createDB(Database db, int version) async {
+    // Create core tables used by the app. Keep schema changes backward compatible
+    // where possible so old devices can upgrade smoothly.
     await db.execute('''
       CREATE TABLE lessons (
         lessonId TEXT PRIMARY KEY,

@@ -1,3 +1,5 @@
+// Lightweight model for a quiz associated with a lesson. Contains passing
+// score and helper to fetch the localized title.
 class QuizModel {
   final String quizId;
   final String lessonId;

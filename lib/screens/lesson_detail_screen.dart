@@ -1,3 +1,10 @@
+// Lesson detail screen: plays lesson video, shows description, and allows the
+// learner to start quizzes/practices. It records video progress to the local
+// progress store (via ProgressService) and triggers sync when relevant.
+//
+// Tricky area (documented): video progress is saved periodically every 5
+// seconds and when 80% watched — this helps the app resume and evaluate
+// lesson completion offline.
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
@@ -17,6 +24,12 @@ import 'package:provider/provider.dart';
 import '../language_provider.dart';
 import 'home_screen.dart';
 
+/// Detailed lesson page with video player and a button to start the quiz.
+///
+/// Responsibilities:
+/// - Initialize video (local file if downloaded, otherwise network URL).
+/// - Periodically save video playback position and mark videoViewed when
+///   the user watches >= 80%.
 class LessonDetailScreen extends StatefulWidget {
   final Lesson lesson;
 
@@ -122,6 +135,19 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
           expectedOutputHa: practice.expectedOutputHa,
           order: practice.order,
         );
+      }
+      // Mark the lesson as downloaded for this user so subsequent checks that
+      // rely on `downloaded_lessons` (hasCompleteLessonPackage) will succeed.
+      try {
+        final uid = getUid();
+        await localLessonContentService.markLessonAsDownloaded(
+          userId: uid,
+          lessonId: widget.lesson.lessonId,
+          isDownloaded: true,
+          videoDownloaded: false,
+        );
+      } catch (e) {
+        debugPrint('Failed to mark lesson as downloaded: $e');
       }
     } catch (e) {
       debugPrint('Offline content cache failed: $e');
@@ -289,6 +315,7 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
   }
 
   Future<void> openQuiz() async {
+    final lang = context.read<LanguageProvider>().languageCode;
     try {
       final hasPackage = await localLessonContentService
           .hasCompleteLessonPackage(
@@ -309,10 +336,8 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       if (!hasValidatedPackage) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Lesson content is not available yet. Please connect to the internet and download this lesson again.',
-            ),
+          SnackBar(
+            content: Text(AppStrings.text(lang, 'lessonContentNotAvailable')),
           ),
         );
         return;
@@ -333,9 +358,11 @@ class _LessonDetailScreenState extends State<LessonDetailScreen> {
       if (mounted) setState(() {});
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Failed to open quiz: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('${AppStrings.text(lang, 'failedToOpenQuiz')} $e'),
+        ),
+      );
     }
   }
 

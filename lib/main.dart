@@ -9,6 +9,9 @@ import 'firebase_options.dart';
 import 'package:provider/provider.dart';
 import 'language_provider.dart';
 
+// Application entry point and root widget setup.
+// This file initializes Firebase, loads saved language preference, and
+// wires up the top-level provider before launching the app.
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -22,6 +25,7 @@ Future<void> main() async {
   );
 }
 
+// Root app widget. Configures theme and localization delegates.
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
@@ -46,6 +50,9 @@ class MyApp extends StatelessWidget {
   }
 }
 
+// Small widget that decides whether to show authenticated content.
+// It listens to Firebase auth state changes and returns either the
+// `HomeScreen` when signed in or `LoginScreen` otherwise.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 

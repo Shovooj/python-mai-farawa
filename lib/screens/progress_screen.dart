@@ -1,3 +1,6 @@
+// Progress screen: shows aggregated learning progress using a stream from
+// `ProgressService` and lesson metadata from Firestore. This is read-only UI
+// code that summarizes completed lessons and watched video minutes.
 import 'package:flutter/material.dart';
 import '../services/firestore_service.dart';
 import '../services/progress_service.dart';

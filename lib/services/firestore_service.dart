@@ -5,6 +5,12 @@ import '../models/progress_model.dart';
 import '../models/question_model.dart';
 import '../models/quiz_model.dart';
 
+// Thin wrapper around Firestore calls used by the app.
+// Notes:
+// - Progress documents use a composite id `${userId}_${lessonId}`.
+// - `saveLessonProgress` uses `FieldValue.serverTimestamp()` for lastAccessed
+//   and completedAt to ensure server time is authoritative.
+// - Progress is merged with existing documents to avoid overwriting other fields.
 class FirestoreService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -92,6 +98,8 @@ class FirestoreService {
     return ProgressModel.fromMap(doc.data()!);
   }
 
+  // Save or merge progress for a lesson. Only provided fields are written.
+  // This lets callers update e.g. practiceCompleted without overwriting score.
   Future<void> saveLessonProgress({
     required String userId,
     required String lessonId,

@@ -3,6 +3,10 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:http/http.dart' as http;
 
+// Handles downloading and storing lesson video files in the app's
+// documents directory under `lesson_videos/`.
+// - `downloadVideo` fetches the bytes over HTTP and writes to disk.
+// - Files are named {lessonId}.mp4 for easy lookup.
 class LocalVideoService {
   Future<Directory> _videoDirectory() async {
     final dir = await getApplicationDocumentsDirectory();
@@ -31,6 +35,8 @@ class LocalVideoService {
     return null;
   }
 
+  // Downloads the video from `videoUrl` and writes it to the lessons folder.
+  // Throws an exception if the network call fails.
   Future<File> downloadVideo({
     required String lessonId,
     required String videoUrl,

@@ -2,6 +2,9 @@ import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 import 'firestore_service.dart';
 
+// Manages caching of quiz, question and practice content for offline use.
+// Also handles downloading a full lesson package (quiz + questions + practices)
+// into local storage. Uses transactions to ensure the package is saved atomically.
 class LocalLessonContentService {
   Future<Database> get _db async => DatabaseHelper.instance.database;
 
@@ -186,6 +189,7 @@ class LocalLessonContentService {
     final db = await _db;
     final now = DateTime.now().toIso8601String();
 
+    // Transaction ensures that all parts of the package are saved together.
     await db.transaction((txn) async {
       if (quiz != null) {
         await txn.insert('quizzes', {

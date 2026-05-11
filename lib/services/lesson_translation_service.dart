@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
 import 'google_translate_service.dart';
 
+// Automates translation of lesson fields to Hausa when translations are
+// missing. Avoids overwriting existing Hausa text.
 class LessonTranslationService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
@@ -19,6 +21,7 @@ class LessonTranslationService {
     final needsTitleTranslation = (titleHa ?? '').trim().isEmpty;
     final needsDescriptionTranslation = (descriptionHa ?? '').trim().isEmpty;
 
+    // If both translations already exist, do nothing.
     if (!needsTitleTranslation && !needsDescriptionTranslation) {
       return;
     }

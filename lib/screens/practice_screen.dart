@@ -1,3 +1,16 @@
+// Practice screen: provides an in-app Python editor (Skulpt) for exercises.
+//
+// Key responsibilities:
+// - Load practice tasks from local cache or Firestore (offline-first).
+// - Host a WebView-based Python runner (assets/skulpt_runner.html) to execute
+//   code and show output.
+// - Mark practice tasks completed locally and enqueue remote sync operations.
+//
+// Tricky notes for beginners:
+// - The WebView communicates with Flutter via a JavaScript channel; watch the
+//   RunnerChannel handler to see how results are received.
+// - Practice completion updates the local progress table and adds an entry to
+//   the sync queue so the remote Firestore can be updated when online.
 import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';

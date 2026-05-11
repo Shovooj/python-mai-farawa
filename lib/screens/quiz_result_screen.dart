@@ -1,3 +1,7 @@
+// Quiz result screen: shows score and handles marking quiz progress locally.
+//
+// Important: quiz results are saved locally first and an entry is added to the
+// sync queue so the remote Firestore is updated when the device is online.
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -143,7 +147,7 @@ class QuizResultScreen extends StatelessWidget {
         title: Padding(
           padding: const EdgeInsets.only(left: 12),
           child: Text(
-            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
+            '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.titleForLang(lang)}',
             style: const TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w700,
@@ -190,7 +194,7 @@ class QuizResultScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 12),
                       Text(
-                        '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.title}',
+                        '${AppStrings.text(lang, 'lesson')} ${lesson.lessonNumber}: ${lesson.titleForLang(lang)}',
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           fontSize: 20,
@@ -252,7 +256,10 @@ class QuizResultScreen extends StatelessWidget {
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   SnackBar(
                                     content: Text(
-                                      'Practice content is not available offline for this lesson yet. Please re-download this lesson while online.',
+                                      AppStrings.text(
+                                        lang,
+                                        'practiceContentNotAvailable',
+                                      ),
                                     ),
                                   ),
                                 );

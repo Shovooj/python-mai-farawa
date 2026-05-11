@@ -4,6 +4,7 @@ import '../services/auth_service.dart';
 import '../localization/app_strings.dart';
 import 'package:provider/provider.dart';
 import '../language_provider.dart';
+import 'home_screen.dart';
 
 // This screen allows existing users to log in to the app.
 class LoginScreen extends StatefulWidget {
@@ -72,9 +73,12 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(AppStrings.text(lang, 'loginSuccessful'))),
       );
 
-      // Do not navigate manually here.
-      // AuthGate in main.dart will detect the signed-in user
-      // and move the app into the signed-in flow automatically
+      // Navigate directly to HomeScreen and remove auth screens from stack
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
     } else {
       // If there is an error message, show it to the user.
       ScaffoldMessenger.of(
@@ -106,8 +110,11 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(content: Text(AppStrings.text(lang, 'loginSuccessful'))),
       );
 
-      // No manual navigation here.
-      // AuthGate will move the user automatically.
+      Navigator.pushAndRemoveUntil(
+        context,
+        MaterialPageRoute(builder: (context) => const HomeScreen()),
+        (route) => false,
+      );
     } else {
       messenger.showSnackBar(SnackBar(content: Text(result)));
     }

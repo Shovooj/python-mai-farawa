@@ -4,12 +4,16 @@ import 'package:synchronized/synchronized.dart';
 import '../models/progress_model.dart';
 import 'database_helper.dart';
 
+// Handles storing and merging lesson progress locally.
+// This service is designed for offline-first behavior: updates are stored
+// locally and later synced to the server via the sync queue.
 class LocalProgressService {
   // Singleton — one instance, one lock, no cross-instance race conditions
   LocalProgressService._internal();
   static final LocalProgressService instance = LocalProgressService._internal();
   factory LocalProgressService() => instance;
 
+  // Lock to avoid concurrent writes colliding on the same local DB rows.
   final Lock _lock = Lock();
 
   Future<Database> get _db async => DatabaseHelper.instance.database;
@@ -45,6 +49,10 @@ class LocalProgressService {
     return ProgressModel.fromMap(result.first);
   }
 
+  // Merge and upsert progress records. Merging rules:
+  // - boolean flags (quiz/practice/video) are ORed (once true, stays true)
+  // - numeric values (score, video position/duration) keep the max observed value
+  // - lessonCompleted is computed from the three flags
   Future<void> upsertLocalProgress({
     required String progressId,
     required String userId,
@@ -78,6 +86,7 @@ class LocalProgressService {
           currentPracticeCompleted || (practiceCompleted ?? false);
       final finalVideoViewed = currentVideoViewed || (videoViewed ?? false);
 
+      // Keep the best score and furthest video position/duration seen locally
       final finalScore = score != null
           ? (score > currentScore ? score : currentScore)
           : currentScore;
@@ -94,6 +103,7 @@ class LocalProgressService {
                 : currentVideoDuration)
           : currentVideoDuration;
 
+      // Completion rule: videoViewed AND quizCompleted AND practiceCompleted
       final finalLessonCompleted =
           finalVideoViewed && finalQuizCompleted && finalPracticeCompleted;
 

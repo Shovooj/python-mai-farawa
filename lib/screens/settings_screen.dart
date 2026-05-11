@@ -1,3 +1,7 @@
+// Settings screen: user profile, language selection, app info, and account
+// management. Admin-only actions (translation helpers) are exposed here and may
+// perform bulk updates to Firestore. Deleting an account requires
+// reauthentication and will remove Firestore user and progress documents.
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -10,7 +14,7 @@ import 'package:provider/provider.dart';
 import '../language_provider.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'signup_screen.dart';
-import 'login_screen.dart';
+import '../main.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -101,15 +105,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final snapshot = await firestore.collection('lessons').get();
 
     for (final doc in snapshot.docs) {
-      final data = doc.data();
+      try {
+        final data = doc.data();
 
-      await lessonTranslationService.translateLessonToHausa(
-        lessonId: doc.id,
-        title: data['title'] ?? '',
-        description: data['description'] ?? '',
-        titleHa: data['titleHa'],
-        descriptionHa: data['descriptionHa'],
-      );
+        final title = (data['title'] as String?)?.trim() ?? '';
+        final description = (data['description'] as String?)?.trim() ?? '';
+        final titleHa = (data['titleHa'] as String?)?.trim();
+        final descriptionHa = (data['descriptionHa'] as String?)?.trim();
+
+        if (doc.id.trim().isEmpty) {
+          debugPrint('Skipping lesson with empty doc id');
+          continue;
+        }
+
+        if (title.isEmpty && description.isEmpty) {
+          debugPrint(
+            'Skipping lesson ${doc.id}: title and description are empty',
+          );
+          continue;
+        }
+
+        await lessonTranslationService.translateLessonToHausa(
+          lessonId: doc.id,
+          title: title,
+          description: description,
+          titleHa: (titleHa == null || titleHa.isEmpty) ? null : titleHa,
+          descriptionHa: (descriptionHa == null || descriptionHa.isEmpty)
+              ? null
+              : descriptionHa,
+        );
+      } catch (e, st) {
+        debugPrint('Lesson translation failed for ${doc.id}: $e');
+        debugPrintStack(stackTrace: st);
+      }
     }
   }
 
@@ -366,7 +394,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
                 if (!mounted) return;
                 Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (_) => const LoginScreen()),
+                  MaterialPageRoute(builder: (_) => const AuthGate()),
                   (route) => false,
                 );
               },
@@ -559,10 +587,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       );
     } finally {
-      if (!mounted) return;
-      setState(() {
-        _isDeletingAccount = false;
-      });
+      if (!mounted) {
+        setState(() {
+          _isDeletingAccount = false;
+        });
+      }
     }
   }
 
@@ -709,9 +738,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               await translateAllLessonsToHausa();
                               if (!mounted) return;
                               messenger.showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Lesson translation to Hausa completed.',
+                                    AppStrings.text(
+                                      lang,
+                                      'lessonTranslationToHausaCompleted',
+                                    ),
                                   ),
                                 ),
                               );
@@ -719,7 +751,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (!mounted) return;
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text('Translation failed: $e'),
+                                  content: Text(
+                                    AppStrings.text(lang, 'translationFailed') +
+                                        e.toString(),
+                                  ),
                                 ),
                               );
                             }
@@ -738,9 +773,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               await translateAllQuizzesToHausa();
                               if (!mounted) return;
                               messenger.showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Quiz translation to Hausa completed.',
+                                    AppStrings.text(
+                                      lang,
+                                      'quizTranslationToHausaCompleted',
+                                    ),
                                   ),
                                 ),
                               );
@@ -748,7 +786,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (!mounted) return;
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text('Translation failed: $e'),
+                                  content: Text(
+                                    AppStrings.text(lang, 'translationFailed') +
+                                        e.toString(),
+                                  ),
                                 ),
                               );
                             }
@@ -767,9 +808,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               await translateAllQuestionsToHausa();
                               if (!mounted) return;
                               messenger.showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Questions translation to Hausa completed.',
+                                    AppStrings.text(
+                                      lang,
+                                      'questionsTranslationToHausaCompleted',
+                                    ),
                                   ),
                                 ),
                               );
@@ -777,7 +821,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (!mounted) return;
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text('Translation failed: $e'),
+                                  content: Text(
+                                    AppStrings.text(lang, 'translationFailed') +
+                                        e.toString(),
+                                  ),
                                 ),
                               );
                             }
@@ -799,9 +846,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               await translateAllPracticesToHausa();
                               if (!mounted) return;
                               messenger.showSnackBar(
-                                const SnackBar(
+                                SnackBar(
                                   content: Text(
-                                    'Practice translation to Hausa completed.',
+                                    AppStrings.text(
+                                      lang,
+                                      'practicesTranslationToHausaCompleted',
+                                    ),
                                   ),
                                 ),
                               );
@@ -809,7 +859,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               if (!mounted) return;
                               messenger.showSnackBar(
                                 SnackBar(
-                                  content: Text('Translation failed: $e'),
+                                  content: Text(
+                                    AppStrings.text(lang, 'translationFailed') +
+                                        e.toString(),
+                                  ),
                                 ),
                               );
                             }

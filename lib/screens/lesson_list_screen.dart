@@ -1,3 +1,6 @@
+// Lesson list screen: shows searchable list of lessons. It attempts to use
+// locally cached lessons first (offline), and falls back to Firestore when
+// needed. Also offers per-lesson download for offline study.
 import 'package:flutter/material.dart';
 import '../models/lesson_model.dart';
 import '../services/offline_lesson_service.dart';
@@ -12,6 +15,11 @@ import '../services/firestore_service.dart';
 import '../services/local_video_service.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
+/// Screen displaying all lessons and a search field.
+///
+/// Notes for beginners:
+/// - This screen prefers local cached lessons (see `OfflineLessonService`).
+/// - Tap the download icon to fetch lesson content and video for offline use.
 class LessonListScreen extends StatefulWidget {
   const LessonListScreen({super.key});
 
@@ -136,7 +144,7 @@ class _LessonListScreenState extends State<LessonListScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '${lesson.titleForLang(lang)} downloaded for offline use.',
+            '${lesson.titleForLang(lang)} ${AppStrings.text(lang, 'downloadedForOfflineUse')}',
           ),
         ),
       );
@@ -149,7 +157,9 @@ class _LessonListScreenState extends State<LessonListScreen> {
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to download ${lesson.titleForLang(lang)}: $e'),
+          content: Text(
+            '${AppStrings.text(lang, 'failedToDownload')} ${lesson.titleForLang(lang)}: $e',
+          ),
         ),
       );
     } finally {

@@ -2,6 +2,9 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'database_helper.dart';
 
+// A generic sync service that mirrors queue entries into Firestore.
+// Note: the application also contains a more specialized `ProgressSyncService`.
+// Keep behavior here conservative: failures leave the queue item as pending.
 class SyncService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 
@@ -41,6 +44,8 @@ class SyncService {
           final userId = payload['userId'];
           final lessonId = payload['lessonId'];
 
+          // Write to a nested collection under users to match a user-scoped
+          // progress storage model. Uses merge to preserve other fields.
           await _firestore
               .collection('users')
               .doc(userId)
@@ -56,7 +61,7 @@ class SyncService {
           whereArgs: [item['id']],
         );
       } catch (e) {
-        // leave as pending
+        // On error we leave the item as pending so it can be retried later.
       }
     }
   }

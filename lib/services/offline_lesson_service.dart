@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:sqflite/sqflite.dart';
 import 'database_helper.dart';
 
+// Caches lessons from Firestore into local SQLite so lessons can be
+// read offline. Uses a batch insert to reduce the number of transactions.
 class OfflineLessonService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
 

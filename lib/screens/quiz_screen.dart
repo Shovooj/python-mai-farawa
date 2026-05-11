@@ -1,3 +1,9 @@
+// Quiz screen: present quiz questions for a lesson and collect answers.
+//
+// Notes:
+// - Tries to use locally cached quiz and questions first (offline-first).
+// - Submitting the quiz navigates to `QuizResultScreen` where progress is
+//   recorded locally and queued for remote sync.
 import 'package:flutter/material.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import '../models/lesson_model.dart';

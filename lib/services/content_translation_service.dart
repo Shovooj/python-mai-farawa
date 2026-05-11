@@ -1,6 +1,8 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'google_translate_service.dart';
 
+// General-purpose content translation utility. Receives a Firestore document
+// and translates missing fields using the provided translator.
 class ContentTranslationService {
   final FirebaseFirestore firestore;
   final GoogleTranslateService translator;

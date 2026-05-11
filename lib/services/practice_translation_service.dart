@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import '../config/app_config.dart';
 import 'google_translate_service.dart';
 
+// Translates practice content to Hausa when missing. Uses Google Translate
+// and avoids changing already-provided Hausa fields.
 class PracticeTranslationService {
   final FirebaseFirestore firestore = FirebaseFirestore.instance;
 
